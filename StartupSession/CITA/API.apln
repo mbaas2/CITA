@@ -1,0 +1,338 @@
+:namespace API
+    nl←⎕UCS 13
+
+    Timeout←180 ⍝ seconds before we consider a job to have timedout
+
+    ∇ {(res Log)}←ExecuteLocalTest arg;fld;fl;loc;xin;rc;specs;R;step;specsObj;lg;cnt;list;showedIO;log;del;list2;v;xin∆;jlog;cfg;rcTest
+⍝:: Execute local tests
+⍝?: Execute local tests
+⍝?:
+⍝?: ]ExecuteLocalTest <path>CITA.json[5] [-workdir=<location> [-empty] [-cleanup[=O|N]] | [-cleanup[=N]]]
+⍝Parse:               1L                   -workdir=            -empty   -cleanup[∊]ON
+⍝??: Execute local tests
+⍝??:
+⍝??: ]ExecuteLocalTest    <path>CITA.json[5] [-workdir=<location> [-empty] [-cleanup[=N|O]] | [-cleanup]]
+⍝??:
+⍝??: <path>               location of CITA.json or CITA.json5 file
+⍝??:
+⍝??: -workdir=<location>  directory in which the tests should be executed (all files/folders found in <path> will be copied to <location>)
+⍝??:
+⍝??: -empty               delete all files from <location> before running tests
+⍝??:
+⍝??: -cleanup             files to delete after running tests:
+⍝??: -cleanup=O           delete only Old files copied from <path> (keeps files resulting from tests)
+⍝??: -cleanup=N           delete only New files created while running the tests (keeps files copied from <path>)
+⍝??: -cleanup=ON          delete all files in <location> after running tests
+⍝??:
+      res←0 ⋄ Log←''
+      arg←##._Parse arg  ⍝ ensure its a parsed arg...
+      fl←∊1 ⎕NPARTS(1 ''##._getArg 1 arg)  ⍝ fld=folder, fl=path to a CITA.json
+      ('File or directory "',fl,'" not found')⎕SIGNAL(~⎕NEXISTS fl)/700
+      fl,←(1=∊1 ⎕NINFO fl)/('\/'∊⍨⊢/fl)↓'/CITA.JSON'  ⍝ we also accept folders as arg and append the filespec automatically (since we're expecting one specific file anyway)
+     
+      fld←1⊃⎕NPARTS fl
+      xin←0(1⊃⎕NPARTS fl)##._getArg'workdir'arg
+     
+⍝      (⎕LC[1]+1)⎕STOP 1⊃⎕SI
+      :If (~⎕NEXISTS fl)∨'cita.json'≢9↑⎕C∊1↓⎕NPARTS fl ⋄ →0⊣(res Log)←700 'CITA.JSON[5] not found' ⋄ :EndIf
+      (rc specsObj lg)←_GetTestSpecs fl
+      :If rc≠0 ⋄ →0⊣(res Log)←701('Error processing specs in "',fl,'": ',⍕lg) ⋄ :EndIf
+      Log,←lg
+      xin←∊1 ⎕NPARTS xin
+      xin,←('/'≠⊢/xin)/'/'
+      :If ~⎕NEXISTS xin
+          →0⊣(res Log)←702 'workdir does not exist'
+      :EndIf
+      :If xin≢fld
+          :If 0<≢list←⊃0(⎕NINFO⍠('Recurse' 1)('Wildcard' 1))xin,'*'
+              :If ~arg.Switch'empty'
+                  →0⊣(res Log)←702 'workdir is not an empty folder'
+              :Else
+                  {}1 ⎕NDELETE⌽list  ⍝ transpose to be sure that we delete files before removing the subfolder containing them
+              :EndIf
+          :EndIf
+      :EndIf
+⍝TODO:: test if this apl qualifies...
+     
+      cnt←0
+      showedIO←0
+      xin∆←xin
+      (⎕LC[1]+1)⎕STOP 1⊃⎕SI
+      :For specs :In specsObj
+          ⍞←specs.id,'...'
+          cnt+←1
+          log←''
+          :If xin∆≢fld
+              xin←xin∆,(⍕specs.id),'/'
+              :Trap 0
+                  ⎕MKDIR xin
+              :Else
+                  xin←xin∆,(⍕cnt),'/'
+                  log,←⊂'The jobid "',specs.id,'" caused an error when attempting to create a folder with that name.'
+                  :Trap 0
+                      ⎕MKDIR xin
+                      log,←⊂'Solved that using counter (',(⍕cnt),') instead.'
+                  :Else
+                      log,←⊂'** Attempt to use counter (',(⍕cnt),') failed as well! Giving up.' ⋄ →EndStep
+                  :EndTrap
+              :EndTrap
+          :EndIf
+     
+⍝ remember files we had before tests were executed...
+          list←⊃0(⎕NINFO⍠('Recurse' 1)('Wildcard' 1))xin,'*'
+          :If xin≢fld
+              :If 0≠xin _CopyFolder fld
+                  (res log)←703 'Problem copying files into workdir-folder'
+                  →EndStep
+              :EndIf
+          :EndIf
+     
+          cfg←''
+          :If 9=specs.⎕NC'config'
+              cfg←∊specs.config{⍵,'=',(⍕⍺⍎⍵),' '}¨specs.config.⎕NL ¯2
+          :ElseIf 2=specs.⎕NC'config'
+              cfg←specs.config
+          :EndIf
+     
+          rcTest←¯1
+          R←0 ''
+          :For step :In 'setup' 'test' 'teardown'
+              ⍞←step,'...'
+              :If step≡'test'
+              :AndIf 0=specs.⎕NC step
+                  R←4 'Missing entry for step "test"'
+              :Else
+                  fl←specs⍎step
+                  (rc jlog)←R←step _RunJob(cfg)(specs)
+                  :If (⊂step)∊'setup' 'test'
+                      rcTest←rc
+                  :EndIf
+                  :Select rc
+                  :CaseList 0,(((⊂step)∊'setup' 'teardown')/4),(((⊂step)∊'test' 'teardown')/1) ⍝ we do nothing here, but may need to catch these cases...(and continue to the next step)
+                  :Case 1
+                      R←rc(step,' (using "',fl,'") failed')
+                      :Leave
+                  :Case 2
+                      R←rc(step,' (using "',fl,'")  did not end properly (Timeout Error)')
+                      :Leave
+                  :Case 3
+                      R←rc('No statusfile (CITA.',step,'.[ok|err]) found after ',step,' ended')
+                      :Leave
+                  :Case 4
+                      R←rc('Invalid or non-existent file "',fl,'" for step "',step,'"')
+                      :Leave
+                  :EndSelect
+              :EndIf
+          :EndFor
+     
+     EndStep:
+          res←~(~res)∧rcTest=0
+          :If log≡'' ⋄ log←2⊃R ⋄ :EndIf
+          Log,←⊂(3⍴'·*'[1+rcTest≠0]),' ',({''≡⍥⎕DR ⍵:'"',⍵,'"' ⋄ 'Test ',(⍕⍵),(~showedIO)/' (⎕IO=1)'}specs.id),({⍵=0:': success ···' ⋄ ': FAILURE (return code = ',(⍕⍵),') ***'}rcTest)
+          showedIO←showedIO∨''≡⍥⎕DR specs.id
+          :If 0<≢log,jlog
+              log←(⊆log),⊆jlog
+              :If 1=≢log
+                  Log,←⊂'    Message: "',log,'"'
+              :Else
+                  Log,←⊂'     Log:'
+                  Log,←⊂∊{(z/'     '),⍵,((z←0<≢⍵)∧~∨/(⎕UCS 13 10)∊∊⍵)/⎕UCS 13}¨log
+              :EndIf
+          :EndIf
+          Log,←⊂''
+     
+     
+          list2←⊃0(⎕NINFO⍠('Recurse' 1)('Wildcard' 1))xin∆,'*'   ⍝ remember files we had before tests were executed...
+          del←0⍴⊂''
+     
+          :Select v←arg.Switch'cleanup'
+          :CaseList 'ON' 'NO'
+              :If fld≡xin∆
+                  ⎕←'Use of modifier -cleanup=',v,' is not supported when -workdir was not given or the same as the source folder of CITA.json'
+              :Else
+                  del←list2
+              :EndIf
+          :Case 'N'
+              del←(~list2∊list)/list2
+          :Case 1
+              :If fld≢xin∆
+                  ⎕←'Use of modifier -cleanup without assignment of a value is not supported when -in is used '
+              :Else
+                  del←(~list2∊list)/list2
+              :EndIf
+          :Case 'O'
+              del←list
+          :EndSelect
+          1 ⎕NDELETE⌽del
+      :EndFor
+     
+    ∇
+
+
+
+    :section tools
+    ∇ (R log)←step _RunJob cfg_specs;cpu;dws;cmd;ext;proc;StatusFiles;ai3;log;specs;cfg;file;isDTest;Fullname;t;TestLog;log_file;exited
+⍝ returncode: 0=ok
+⍝             1=test failed
+⍝             2=aborted because of Timeout
+⍝             3=no status file found
+⍝             4=invalid or non-existent file
+     
+      log←''
+      dws←cmd←''  ⍝ Arguments for constructor of APLProcess
+      R←0
+      →(0=≢cfg_specs)/EOF
+      (cfg specs)←2↑⊆cfg_specs
+      file←specs{6::'' ⋄ ⍺⍎⍵}step
+      →(0=≢file)/EOF
+      isDTest←0   ⍝ do we have a ]DTest-Call?
+     
+      :If ~⎕NEXISTS xin,file ⋄ R←4 ⋄ →EndJob ⋄ :EndIf
+          
+    ⍝ step of Statusfiles to indicate failure [1] or success[2]
+      StatusFiles←(⊂xin,'CITA.',⎕C step),¨'.err' '.ok'
+      1 ⎕NDELETE¨StatusFiles  ⍝ make sure there are no old statusfiles around...
+
+      ⍝...and explicitely set a log_file for each step (to be stored in workdir-folder):
+      cfg,←' LOG_FILE="',(xin,'log_',step,'.dlf'),'" CITA_Log="',(∊2↑⎕nparts 1⊃StatusFiles),'"'
+      cfg,←' APLCORENAME="',xin,'APLCORE_',step,'."'
+
+      :If 0=⎕NC'APLProcess' ⋄ ⎕SE.SALT.Load _FindCITA,'APLProcess' ⋄ :EndIf
+      cpu←⎕AI[3]
+      Fullname←∊1 ⎕NPARTS xin,file
+      :Select ext←⎕C 3⊃⎕NPARTS file
+      :CaseList '.aplf' '.aplc' '.apln' ⋄ cmd←'LOAD="',Fullname,'"'
+      :Case '.dws' ⋄ dws←Fullname
+      :Case '.dyalog' ⋄ cmd←'LX="⎕SE.UCMD''xx←Load ''''',Fullname,''''''' ⋄ ⍎{9≠⎕nc ⍵: ⍵,'' ⍬'' ⋄ ⍵,''.Run ⍬''}xx"'
+      :CaseList '' '.dyalogtest'
+          R←4('.dyalogtest or folder-argument only valid for "test", not "',step,'"') ⋄ →(step≢'test')/EndJob
+          :If ext≡'' ⋄ :AndIf 1≠1 ⎕NINFO Fullname ⋄ R←4 ⋄ →EndJob ⋄ :EndIf  ⍝ no extension, but does not refer to a folder
+          TestLog←xin,'CITA_',(2⊃⎕NPARTS(-(ext≡''))↓Fullname),'.log'
+          ⍝cmd←'lx="⎕SE.UCMD''output.Find on -includequadoutput'' ⋄ ⎕SE.UCMD''DTest ',Fullname,' -off -testlog=',TestLog,' ',(specs{6::'' ⋄ ⍺⍎⍵}'DTestArgs'),'''"'
+          cmd←'LX="⎕SE.UCMD''DTest ''''',Fullname,''''' -off -testlog=''''',TestLog,''''' ',(specs{6::'' ⋄ ⍺⍎⍵}'dtestmodifiers'),'''"'
+          isDTest←1
+      :Else
+          R←4('Did not recognize type of file "',file,'"') ⋄ →EndJob
+      :EndSelect
+      cmd,←' ',cfg
+      ⎕←(⎕UCS 13),'Executing APLProcess with cmdline ',cmd,' in dir ',xin
+      exited←¯1
+      proc←⎕NEW APLProcess(dws cmd 0 '' ''xin)
+      ai3←⎕AI[3]
+      :While ~proc.IsRunning proc.Proc.Id ⋄ ai3←⎕AI[3] ⋄ :EndWhile   ⍝ wait until process has started
+      :Repeat
+          ⎕DL 1⌊specs.secondstimeout×1000  ⍝ delay one second by default, but allow smaller (if someone challenges our timeouts...)
+      :Until (ai31←⎕AI[3])≥⌊ai3+specs.secondstimeout×1000
+      :OrIf exited←proc.HasExited
+     
+      :If 0=⎕NC'exited'
+      :OrIf exited∊0 ¯1   ⍝ TIMEOUT
+          log←'Process did not complete within ',(1⍕0.001×⎕AI[3]-ai3),' seconds and was killed (SecondsTimeout=',(⍕specs.secondstimeout),((specs.secondstimeout=Timeout)/' default value'),')'
+          {}proc.Kill
+          R←2 ⋄ →EndJob
+      :EndIf
+      :If isDTest
+         ⍝ how to determine success or failure? (On Windows we could use prod.GetExitCode, but that won't be general enough for CITA)
+          :If ⎕NEXISTS TestLog  ⍝ logfile was created → tests failed!
+              ''⎕NPUT 1⊃StatusFiles
+              log←']DTest created a logfile ("',TestLog,'") indicating failed tests. Details in that file'
+              R←1
+          :Else               ⍝ absence of log indicates success
+              (⊂'')⎕NPUT 2⊃StatusFiles
+              R←0
+          :EndIf
+          →EndJob
+      :EndIf
+      :If ⎕NEXISTS 2⊃StatusFiles ⋄ R←0 ⋄ →EndJob ⋄ :EndIf
+      :If ⎕NEXISTS 1⊃StatusFiles ⋄ log←'Test created logfile "',(1⊃StatusFiles),'" to indicate failed tests. More info might be found in the APL Session-log "',log_file,'"' ⋄ R←1 ⋄ →EndJob ⋄ :EndIf
+      R←3
+     
+     EndJob:
+     EOF:
+    ∇
+
+    ∇ (rc rspec log)←_GetTestSpecs fl;cnt;specs;spec;FoldJson
+      :Trap rc←0
+          log←''
+          cnt←0
+          rspec←⍬
+          FoldJson←{
+              Apl←0 ⎕JSON⍠'Dialect' 'JSON5'⊢
+              Json←1 ⎕JSON⍠'Compact' 0⊢
+              FoldMembers←'^.*[^\\]":'⎕R{':',⍨Json ⎕C Apl ¯1↓⍵.Match}
+              Apl FoldMembers Json Apl ⍵
+          }
+          specs←FoldJson 1⊃⎕NGET fl
+     
+          ⍝ and make sure we have something in Test (will be validated later)
+          :For spec :In specs
+            ⍝ set defaults for optional entries Setip/Teardown
+              spec←(⊂'setup'){0=⍵.⎕NC ⍺:⍵⊣⍵⍎⍺,'←''''' ⋄ ⍵}¨spec
+              spec←(⊂'teardown'){0=⍵.⎕NC ⍺:⍵⊣⍵⍎⍺,'←''''' ⋄ ⍵}¨spec
+              spec.secondstimeout←spec{6::⍵ ⋄ ⍺.secondstimeout}Timeout
+     
+              cnt+←1
+              spec.id←spec{6::⍵ ⋄ ⍺⍎'id'}'#',⍕cnt
+              rspec,←spec
+          :EndFor
+          :If rspec≡⍬ ⋄ rc←705 ⋄ →0 ⋄ :EndIf
+      :Else
+          rc←701 ⋄ log←⊂'Error reading "',fl,'":',nl,⎕JSON ⎕DMX
+      :EndTrap
+      rc←0
+    ∇
+
+
+
+    ∇ R←to _CopyFolder from;hf;n;t;h
+    ⍝ can't use ⎕NCOPY because that would also copy hidden files/directories - which would really hurt in the case of ".git"
+    ⍝ R is returncode. Values: 0=ok
+    ⍝                          1=problems copying file
+    ⍝                          2=problems creating a folder
+      R←0
+      from←∊1 ⎕NPARTS from ⍝ normalize it
+      hf←⍬
+      :For (n t h) :In ↓[1]↑0 1 6(⎕NINFO⍠('Wildcard' 1)('Recurse' 1))(from,'/*')   ⍝ get name, type & hidden-status
+          hf,←(h∧t=1)/⊂n ⍝ collect step of hidden directories
+          :If h=1 ⋄ :Continue ⋄ :EndIf
+          :If 0<≢hf ⋄ :AndIf 1∊hf{⍺≡(≢⍺)↑⍵}¨⊂n ⋄ :Continue ⋄ :EndIf ⍝ file from a hidden folder
+          :If 1=t  ⍝ directory
+              :If from≡(≢from)↑n
+                  :Trap 0
+                      3 ⎕MKDIR to,(≢from)↓n ⋄ :Continue
+                  :Else
+                      →0⊣R←2
+                  :EndTrap
+              :Else
+                  ⎕←'Paranoia justified!'
+                  ∘∘∘
+              :EndIf
+          :Else
+              :If 1≠(to,(≢from)↓n)⎕NCOPY n
+                  →0⊣R←1
+              :EndIf
+          :EndIf
+      :EndFor
+      R←0
+    ∇
+
+    ∇ R←_FindCITA
+    ⍝ I had expected this would turn out to be more complicated...
+    ⍝ but doing it this way we don't even need the environment variable!
+      :If 3=⎕SE.⎕NC'CITA._getArg'
+      :AndIf 0<≢R←4⊃5179⌶'⎕SE.CITA._getArg'      ⍝ default (and preferred) approach
+          R←1⊃⎕NPARTS R
+      :ElseIf 0<≢R←4⊃5179⌶⎕SE.CITA.API  ⍝ also acceptable...
+          R←1⊃⎕NPARTS R
+      :ElseIf 2=##.⎕NC't'   ⍝ during List
+          R←∊1 ⎕NPARTS(##.t~'"'),'/../../../StartupSession/CITA'
+      :ElseIf 2=##.##.⎕NC't'   ⍝ saw that stack as well during spc.List
+          R←∊1 ⎕NPARTS(##.##.t~'"'),'/../../../StartupSession/CITA'
+      :Else  ⍝ take out before going into production...
+          600⌶1
+          ∘∘∘
+          600⌶0
+      :EndIf
+    ∇
+    :endsection
+:endnamespace

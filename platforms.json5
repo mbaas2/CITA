@@ -1,0 +1,6 @@
+[// this file isn't used yet, so the format is likely to change...
+    {name: "Win+Core",OS: "Win", net: "Core", netVersion: 3}, 
+    {name: "Win",OS:"Win"},
+    {name: "Mac",OS:"Mac"},
+    {name: "Ubuntu20+Core",OS: "Ubuntu", osVersion: 20,net: "Core"},
+]    

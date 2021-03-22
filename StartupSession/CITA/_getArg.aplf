@@ -1,0 +1,21 @@
+ R←{req_dflt}_getArg(name args);t;req;dflt;swd
+⍝ get value of a CITA-Argument by first checking if args is a UCMD-commandline with the appopriate switch set
+⍝ name can also be an integer, in which it is an index into the argumemts.
+⍝ Alternatively name can also be a character-vector which contains assignments of those values (no prefix, separated by "=" - like you'd pass to a ]UCMD-Call)
+ :If 0=⎕NC'req_dflt' ⋄ (req dflt)←0 ''
+ :Else
+     req←⊃req_dflt
+     dflt←∊1↓req_dflt
+ :EndIf
+
+
+ :If (⎕DR' ')=⎕DR name   ⍝ a switch...
+ :AndIf 2=⎕NC'req_dflt'
+     R←dflt args.Switch name
+ :ElseIf (⎕DR' ')=⎕DR name
+     R←args.Switch name
+ :ElseIf (⊂'_',⍕name)∊args.SwD[;1]
+     R←args⍎'_',⍕name
+ :Else
+     R←dflt
+ :EndIf

@@ -1,0 +1,53 @@
+ r←DownloadsEtc nul;files;sha;url
+
+ r←⍬
+
+       R21←R2 GitHub.SortListBy'commit.author.date'    ⍝ sort by date
+      sha←2⊃R2[2;]  ⍝ find last commit
+
+ files←'tree.path' 'tree.url'GitHub.ListFiles'' 'DBuildTest'sha
+
+ :If ~(⊂'CITA.json')∊files[;1]
+     →fail Because'CITA.json not found in repository DBuildTest' ⋄ :EndIf
+
+
+ :If 1 Check GitHub.HasCITA'DBuildTest'
+     →fail Because'"HasCITA" could not confirm DBuildTest has CITA.json (which we checked before)' ⋄ :EndIf
+
+
+ url←((⎕C files[;1])⍳⊂'tacit.json')⊃files[;2]
+ 1 ⎕NDELETE tmpPath,'CITA.json'
+ :If 0 Check z←⊃file←(tmpPath,'CITA.json')GitHub.RetrieveFile url
+     →fail Because'Retrieving CITA.json did not end with status 0' ⋄ :EndIf
+
+⍝ Scenario: a file was commited and removed with next commit. Can we retrieve repo as it was when file was committed?
+      ⍝co←ListCommits'mbaas2' 'CITA'
+      files1←'tree.path' 'tree.url'GitHub.ListFiles'mbaas2' 'CITA' 'ee99f1'   ⍝ state of repo when file "Temporary.md" was committed. Note that will gives us the state of the repo at that stage! :)
+      files2←'tree.path' 'tree.url'GitHub.ListFiles'mbaas2' 'CITA' '94a8d0'   ⍝ "Temporary.md" was removed with that commit!
+      diff1←(~files1[;1]∊files2[;1])⌿files1
+
+:if 1 Check ≢diff1   ⍝ one file should differ between these commits
+→fail Because'Did not find exactly 1 different file comparing two known commits' ⋄ :end
+
+          :if 0 Check 1⊃res←(1⊃,diff1)GitHub.RetrieveFile 2⊃,diff1
+          →fail Because'Retrieving file ',(1⊃diff1),' did not end with returncode 0 but: ',⍕res ⋄ :end
+
+      b←'name' 'commit.url'GitHub.ListBranches'' 'DBuildTest'
+
+      t1←'name' 'commit.url' 'zipball_url'GitHub.ListTags'' 'TamStat-App'
+      :if  1 Check 30≤≢t1
+      →fail Because'Did not find at least 30 tags on repository TamStat-App' ⋄ :endif
+
+      t2←'name' 'commit.url' 'zipball_url'GitHub.ListTags'mbaas2' 'CITA'
+      ⎕←'Found ',(⍕≢t2),' tags on mbaas/CITA'
+
+      r1←'tag_name' 'published_at' 'zipball_url' 'name' 'body'GitHub.ListReleases'' 'TamStat-App'
+      r1←r1 GitHub.SortListBy'published_at'    ⍝ sort releases by date (descending order)
+      url←3⊃r1[2;]   ⍝ zipball_url
+
+      :if 0 Check ⊃res←(t←tmpPath,'tamstat.zip')GitHub.RetrieveFile url
+      →fail Because 'Download of latest TamStat-release to ',(2⊃t),' did not end with returncode 0 but: ',⍕res ⋄ :end
+
+
+→0
+fail:

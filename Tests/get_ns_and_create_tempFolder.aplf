@@ -1,0 +1,8 @@
+ R←get_ns_and_create_tempFolder dummy
+ R←''
+ o←⎕NS'' ⋄ o.overwrite←1
+ {}o ⎕SE.Link.Import ⎕this(##.TESTSOURCE,'..\GitHub.apln')
+
+
+ tmpPath←⊃(739⌶0),'"/CITA-Tests/"YYYYMMDD"_"hhmmss"/"'(1200⌶)1 ⎕DT⊂⎕TS
+ 3 ⎕MKDIR tmpPath
