@@ -188,15 +188,15 @@
       isDTest←0   ⍝ do we have a ]DTest-Call?
      
       :If ~⎕NEXISTS xin,file ⋄ R←4 ⋄ →EndJob ⋄ :EndIf
-          
+     
     ⍝ step of Statusfiles to indicate failure [1] or success[2]
       StatusFiles←(⊂xin,'CITA.',⎕C step),¨'.err' '.ok'
       1 ⎕NDELETE¨StatusFiles  ⍝ make sure there are no old statusfiles around...
-
+     
       ⍝...and explicitely set a log_file for each step (to be stored in workdir-folder):
-      cfg,←' LOG_FILE="',(xin,'log_',step,'.dlf'),'" CITA_Log="',(∊2↑⎕nparts 1⊃StatusFiles),'"'
+      cfg,←' LOG_FILE="',(xin,'log_',step,'.dlf'),'" CITA_Log="',(∊2↑⎕NPARTS 1⊃StatusFiles),'"'
       cfg,←' APLCORENAME="',xin,'APLCORE_',step,'."'
-
+     
       :If 0=⎕NC'APLProcess' ⋄ ⎕SE.SALT.Load _FindCITA,'APLProcess' ⋄ :EndIf
       cpu←⎕AI[3]
       Fullname←∊1 ⎕NPARTS xin,file
@@ -263,9 +263,10 @@
               Apl FoldMembers Json Apl ⍵
           }
           specs←FoldJson 1⊃⎕NGET fl
+          specs.(defaults{(⊂⍺ ⍵){(s t)←⍺ ⋄ 0=t.⎕NC ⍵:⍎'t.',⍵,'←s.',⍵}¨⍺.⎕NL-2}¨tests)    ⍝ Apply defaults to all tests
      
           ⍝ and make sure we have something in Test (will be validated later)
-          :For spec :In specs
+          :For spec :In specs.tests
             ⍝ set defaults for optional entries Setip/Teardown
               spec←(⊂'setup'){0=⍵.⎕NC ⍺:⍵⊣⍵⍎⍺,'←''''' ⋄ ⍵}¨spec
               spec←(⊂'teardown'){0=⍵.⎕NC ⍺:⍵⊣⍵⍎⍺,'←''''' ⋄ ⍵}¨spec
