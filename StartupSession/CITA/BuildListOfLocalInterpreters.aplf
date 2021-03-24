@@ -1,0 +1,47 @@
+(R log)←BuildListOfLocalInterpreters;k;i;keys;int;exe;bak;cnt;file
+:select 3↑1⊃'.'⎕wg'APLVersion'
+
+:case 'Win'
+ keys←WinReg.GetAllSubKeyNames dyalog←'HKEY_CURRENT_USER\SOFTWARE\Dyalog'
+ int←⍬
+ :For k :In keys
+     :If (12↑k)≡'Dyalog APL/W'  ⍝ is it an interpreter
+         exe←(WinReg.GetString dyalog,'\',k,'\Dyalog'){⍺,((~∨/'\/'=¯1↑⍺)/'\'),⍵}'dyalog.exe'
+         :If ⎕NEXISTS exe
+             i←⎕NS'' ⍝ collect data in this ns
+             i.exe←∊1 ⎕NPARTS exe
+             i.Bits←(32 64)[1+'-64'≡3↑12↓k]
+             i.Edition←'CU'[1+∨/'Unicode'⍷k]
+             i.Version←3⊃2⊃' '⎕VFI k
+             i.id←i.((⍕Version×10*Version=⌊Version),Edition,⍕Bits)
+             int,←i
+         :Else
+             ⎕←'Key "',k,'" was not considered because "',exe,'" was not found!'
+         :EndIf
+     :EndIf
+ :EndFor
+:endselect
+
+ :If 0<≢int
+     file←2 ⎕NQ'.' 'GetEnvironment' 'CITA_ListOfLocalInterpreters'
+     :If 0=≢file
+         file←(2 ⎕NQ'.' 'GetEnvironment' 'USERPROFILE'),'/Documents/Dyalog APL Files/interpreters.json5'
+         log←⊂'Environment-Variable (or Dyalog Setting) "CITA_ListOfLocalInterpreters" was not found,'
+         log,←⊂'saving to "',file,'" instead'
+     :EndIf
+     :If ⎕NEXISTS file
+         cnt←0
+         :While ⎕NEXISTS bak←∊(2↑1 ⎕NPARTS file),'.bak',((cnt>0)/'-',⍕cnt),'.json5'
+             cnt+←1
+         :EndWhile
+         bak(⎕NMOVE⍠'RenameOnly' 1)file
+         log,←⊂'Backed up existing file to ',bak
+     :EndIf
+     (⊂(⎕JSON⍠'Compact' 0)int)⎕NPUT file 1
+     R←1
+
+ :Else
+     R←0
+     log,←⊂'Noting to do'
+
+ :EndIf
