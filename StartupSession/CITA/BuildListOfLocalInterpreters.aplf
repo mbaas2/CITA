@@ -38,6 +38,8 @@
          :Else
              log,←⊂'Folder "',k,'" was excluded because it did not contain expected "',exe,'"'
          :EndIf
+         :case'Lin'
+         ,+,+,
 :endfor
      :EndFor
  :EndSelect
