@@ -1,4 +1,4 @@
- (R log)←BuildListOfLocalInterpreters;k;i;keys;int;exe;bak;cnt;file;json;docFld
+﻿ (R log)←BuildListOfLocalInterpreters;k;i;keys;int;exe;bak;cnt;file;json;docFld
  int←⍬
  log←''
  :Select 3↑1⊃'.'⎕WG'APLVersion'
@@ -24,36 +24,36 @@
      :EndFor
  :Case 'Mac'
      docFld←'/Users/',⎕AN,'/Documents'
-     :for fld in '/Applications/Dyalog*' '/Dyalog/Dyalog*'
-     :For k :In ⊃0(⎕NINFO⍠1)
-         exe←k,'/Contents/Resources/Dyalog/mapl'
-         :If ⎕NEXISTS exe
-             i←⎕NS'' ⍝ collect data in this ns
-             i.exe←∊1 ⎕NPARTS exe
-             i.Bits←64
-             i.Edition←'U'
-             i.Version←2⊃2⊃'-'⎕VFI ¯4↓k
-             i.id←i.((⍕Version×10),Edition,⍕Bits)
-             int,←i
-         :Else
-             log,←⊂'Folder "',k,'" was excluded because it did not contain expected "',exe,'"'
-         :EndIf
-         :case'Lin'
-         ,+,+,
-:endfor
+     :For fld :In '/Applications/Dyalog*' '/Dyalog/Dyalog*'
+         :For k :In ⊃0(⎕NINFO⍠1)
+             exe←k,'/Contents/Resources/Dyalog/mapl'
+             :If ⎕NEXISTS exe
+                 i←⎕NS'' ⍝ collect data in this ns
+                 i.exe←∊1 ⎕NPARTS exe
+                 i.Bits←64
+                 i.Edition←'U'
+                 i.Version←2⊃2⊃'-'⎕VFI ¯4↓k
+                 i.id←i.((⍕Version×10),Edition,⍕Bits)
+                 int,←i
+             :Else
+                 log,←⊂'Folder "',k,'" was excluded because it did not contain expected "',exe,'"'
+             :EndIf
+         :EndFor
      :EndFor
+ :Case 'Lin'
+     ,+,+,
  :EndSelect
 
  :If 0<≢int
      file←2 ⎕NQ'.' 'GetEnvironment' 'CITA_ListOfLocalInterpreters'
      json←((⎕JSON⍠'Compact' 0)int),⎕UCS 10  ⍝ for compatibility with ⎕NGET
      :If 0=≢file
-         file←∊1⎕nparts docFld,'/Dyalog APL Files/interpreters.json5'
+         file←∊1 ⎕NPARTS docFld,'/Dyalog APL Files/interpreters.json5'
          log,←⊂'Environment-Variable (or Dyalog Setting) "CITA_ListOfLocalInterpreters" was not found,'
          log,←⊂'saving to "',file,'" instead'
      :EndIf
      :If ⎕NEXISTS file
-         :If json≡⍥{⍵~⎕ucs 10 13}1⊃⎕nget file
+         :If json≡⍥{⍵~⎕UCS 10 13}1⊃⎕NGET file
              R←1 ⋄ log←⊂'No changes found - file "',file,'" was not replaced'
              →End
          :Else
