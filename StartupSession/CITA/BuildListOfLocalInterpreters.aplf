@@ -1,4 +1,4 @@
- (R log)←BuildListOfLocalInterpreters;k;i;keys;int;exe;bak;cnt;file
+ (R log)←BuildListOfLocalInterpreters;k;i;keys;int;exe;bak;cnt;file;json;docFld
  int←⍬
  log←''
  :Select 3↑1⊃'.'⎕WG'APLVersion'
@@ -24,7 +24,8 @@
      :EndFor
  :Case 'Mac'
      docFld←'/Users/',⎕AN,'/Documents'
-     :For k :In ⊃0(⎕NINFO⍠1)'/Applications/Dyalog*'
+     :for fld in '/Applications/Dyalog*' '/Dyalog/Dyalog*'
+     :For k :In ⊃0(⎕NINFO⍠1)
          exe←k,'/Contents/Resources/Dyalog/mapl'
          :If ⎕NEXISTS exe
              i←⎕NS'' ⍝ collect data in this ns
@@ -37,30 +38,35 @@
          :Else
              log,←⊂'Folder "',k,'" was excluded because it did not contain expected "',exe,'"'
          :EndIf
-
+:endfor
      :EndFor
  :EndSelect
 
  :If 0<≢int
      file←2 ⎕NQ'.' 'GetEnvironment' 'CITA_ListOfLocalInterpreters'
+     json←((⎕JSON⍠'Compact' 0)int),⎕UCS 10  ⍝ for compatibility with ⎕NGET
      :If 0=≢file
-         file←docFld,'/Dyalog APL Files/interpreters.json5'
+         file←∊1⎕nparts docFld,'/Dyalog APL Files/interpreters.json5'
          log,←⊂'Environment-Variable (or Dyalog Setting) "CITA_ListOfLocalInterpreters" was not found,'
          log,←⊂'saving to "',file,'" instead'
      :EndIf
      :If ⎕NEXISTS file
-         cnt←0
-         :While ⎕NEXISTS bak←∊(2↑1 ⎕NPARTS file),'.bak',((cnt>0)/'-',⍕cnt),'.json5'
-             cnt+←1
-         :EndWhile
-         bak(⎕NMOVE⍠'RenameOnly' 1)file
-         log,←⊂'Backed up existing file to ',bak
+         :If json≡⍥{⍵~⎕ucs 10 13}1⊃⎕nget file
+             R←1 ⋄ log←⊂'No changes found - file "',file,'" was not replaced'
+             →End
+         :Else
+             cnt←0
+             :While ⎕NEXISTS bak←∊(2↑1 ⎕NPARTS file),'.bak',((cnt>0)/'-',⍕cnt),'.json5'
+                 cnt+←1
+             :EndWhile
+             bak(⎕NMOVE⍠'RenameOnly' 1)file
+             log,←⊂'Backed up existing file to ',bak
+         :EndIf
      :EndIf
-     (⊂(⎕JSON⍠'Compact' 0)int)⎕NPUT file 1
+     (⊂json)⎕NPUT file 1
      R←1
-
  :Else
      R←0
      log,←⊂'Nothing to do'
-
  :EndIf
+End:
