@@ -2,9 +2,8 @@
     nl←⎕UCS 13
 
     Timeout←180 ⍝ seconds before we consider a job to have timedout
-    If←{⍵:⍺⋄⍬}  ⍝ syntax sugar for →
 
-    ∇ {(res Log)}←ExecuteLocalTest arg;fld;fl;loc;xin;rc;specs;R;step;specsObj;lg;cnt;list;showedIO;log;del;list2;v;xin∆;jlog;cfg;rcTest;interpreters;interpreter;t;int;resTab;plus;V;B;b;E;xinO
+    ∇ {(res Log)}←ExecuteLocalTest arg;fld;fl;loc;xin;rc;specs;R;step;specsObj;lg;cnt;list;showedIO;log;del;list2;v;xin∆;jlog;cfg;rcTest;interpreters;interpreter;t;int;resTab;plus;V;B;b;E;xinO;If
 ⍝:: Execute local tests
 ⍝?: Execute local tests
 ⍝?:
@@ -27,6 +26,7 @@
 ⍝??: -cleanup=ON          delete all files in <location> after running tests
 ⍝??:
       res←0 ⋄ Log←''
+      If←{⍵:⍺ ⋄ ⍬}  ⍝ syntax sugar for →
       arg←##._Parse arg  ⍝ ensure its a parsed arg...
       fl←∊1 ⎕NPARTS(1 ''##._getArg 1 arg)  ⍝ fld=folder, fl=path to a CITA.json
       ('File or directory "',fl,'" not found')⎕SIGNAL(~⎕NEXISTS fl)/700
@@ -63,7 +63,7 @@
       :If arg.Switch'all'
       :AndIf 0<≢t←2 ⎕NQ'.' 'GetEnvironment' 'CITA_ListOfInterpreters'
       :AndIf 0<≢t←{0::'' ⋄ 1⊃⎕NGET ⍵}t
-          interpreters←FoldJson t
+          interpreters←_FoldJson t
       :EndIf
       :For interpreter :In interpreters
           int+←1
@@ -77,6 +77,10 @@
           :Else
               ⎕←t←interpreter.id
               →NextInt If~⎕NEXISTS interpreter.exe ⍝ make sure interpreter does exist...
+              :If 2=interpreter.⎕NC'disabled'
+              :AndIf 0<≢interpreter.diasbled
+                  →NextInt
+              :EndIf
           :EndIf
           resTab[1;1+int]←⊂t
           cnt←0
@@ -231,7 +235,7 @@
 
 
     :section tools
-    ∇ (R log)←step _RunJob cfg_specs_interpreter;cpu;dws;cmd;ext;proc;StatusFiles;ai3;log;specs;cfg;file;isDTest;Fullname;t;TestLog;log_file;exited
+    ∇ (R log)←step _RunJob cfg_specs_interpreter;cpu;dws;cmd;ext;proc;StatusFiles;ai3;log;specs;cfg;file;isDTest;Fullname;t;TestLog;log_file;exited;If
 ⍝ returncode: 0=ok
 ⍝             1=test failed
 ⍝             2=aborted because of Timeout
@@ -242,6 +246,7 @@
 ⍝ access global var "E" which has the Edition of the target-environment (U|C)
      
       log←''
+      If←{⍵:⍺ ⋄ ⍬}  ⍝ syntax sugar for →
       dws←cmd←''  ⍝ Arguments for constructor of APLProcess
       R←0
       →(0=≢cfg_specs_interpreter)/EOF
@@ -326,7 +331,7 @@
           cnt←0
           rspec←⍬
      
-          specs←FoldJson 1⊃⎕NGET fl
+          specs←_FoldJson 1⊃⎕NGET fl
           specs.(defaults{(⊂⍺ ⍵){(s t)←⍺ ⋄ 0=t.⎕NC ⍵:⍎'t.',⍵,'←s.',⍵}¨⍺.⎕NL-2}¨tests)    ⍝ Apply defaults to all tests
      
           ⍝ and make sure we have something in Test (will be validated later)
@@ -400,7 +405,7 @@
       :EndIf
     ∇
 
-      FoldJson←{
+      _FoldJson←{
           Apl←0 ⎕JSON⍠'Dialect' 'JSON5'⊢
           Json←1 ⎕JSON⍠'Compact' 0⊢
           FoldMembers←'^.*[^\\]":'⎕R{':',⍨Json ⎕C Apl ¯1↓⍵.Match}
