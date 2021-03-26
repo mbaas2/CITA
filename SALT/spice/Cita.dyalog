@@ -11,6 +11,9 @@
 
     ∇ r←level Help cmd
       FetchAPI
+      600⌶1
+∘∘∘
+      600⌶0
       r←⎕SE.CITA.UCMD._Help{(⍺[;⍳2]∧.≡⍵)⌿⍺[;3]}cmd level
       :If ∨/⎕SE.CITA.UCMD._Help[;⍳2]∧.≡cmd(level+1)
           r,←(⊂''),(⊂']CITA.',cmd,' -',((level+2)⍴'?'),'    ⍝ for more details')
@@ -21,6 +24,10 @@
       ⎕ML←1
       FetchAPI
       :If 3=⎕NC'⎕SE.CITA.API.',cmd        ⍝ if function exists in ⎕SE.CITA...
+      600⌶1
+      args.SwD⍪←'ucmd'1
+      ∘∘∘
+      600⌶0
           (rc log)←⍎'⎕SE.CITA.API.',cmd,' args' ⍝ execute it...
           r←cmd,': ',{⍵=0:'success' ⋄ ('*** '/⍨0≠rc),'FAILURE (return code=',(⍕⍵),')'},rc
           r←l r(l←(⌈/(≢r),≢¨log)⍴'-─'[1+0=rc])
@@ -38,7 +45,7 @@
        :If 0=⎕NC'⎕SE.CITA' ⋄ 'CITA'⎕SE.⎕NS'' ⋄ :endif
       :If 0=⎕NC'⎕SE.CITA.UCMD'
       :OrIf 0=⎕NC'⎕SE.CITA.UCMD._Help'
-          ⍝ the bad news is that this needs the API-ns which will be brought in later (during regular boot)
+          ⍝ the bad news is that this needs the API-ns which will be brought in later (during regular boot via DYALOGSTARTUPSE)
           ⍝ so we do it now...
           'CITA'⎕SE.⎕NS''
           'UCMD'⎕SE.CITA.⎕NS''
@@ -49,17 +56,20 @@
           :endif
           ⍝ Build list & help and construct stub-fns in ⎕SE.CITA
           ⍝ based on fns we find in ⎕SE.CITA.API
-          ⎕SE.CITA.UCMD._List←'['
+          ⎕SE.CITA.UCMD._List←'[ '
           ⎕SE.CITA.UCMD._Help←0 3⍴0  ⍝ [;1]=name, [;2]=Level, [;3]=line
           findLine←{{(+/∧\⍵=' ')↓⍵}¨l↓¨(((l←2+≢⍵)↑¨⍺)≡¨⊂'⍝',⍵,':')/⍺}
           quote←{'"',⍵,'"'}
           :For fn :In {('_'≠1⊃¨⍵)/⍵}⎕SE.CITA.API.⎕NL-3  ⍝ only for fns NOT starting with '_'
               nr←⎕SE.CITA.API.⎕NR fn
-              'ns'⎕NS''
               j←'{'
               j,←'"Name":',quote fn
               j,←',"Desc":',quote∊nr findLine':'
-              j,←',"Parse":',quote∊nr findLine'Parse'
+             ⍝ Parse: we also support parseU/parseA to allow for different syntax when API-Fn is used via UCMD or API-Calls. 
+              :if 0=≢parse←∊nr findLine'Parse'
+              parse←∊nr findLine'ParseU'
+              :endif
+              j,←',"Parse":',quote parse
               j,←',"Group":"CITA"'
               j,←'}'
               ⎕SE.CITA.UCMD._List,←j,','
@@ -80,11 +90,14 @@
               :Case ¯1 ⋄ hd←'{R}←',hd
               :EndSelect
               r←'←'∊hd
-              hd←(⊂hd),⊂':if 2=⎕nc''larg''⋄',(r/'R←'),'larg _getAPI ''',fn,''' rarg'
+              hd←(⊂hd),←⊂':if 2=⎕nc''larg''⋄',(r/'R←'),'larg _getAPI ''',fn,''' rarg'
               hd,←⊂':else⋄',(r/'R←'),'_getAPI ''',fn,''' rarg'
               hd,←⊂':endif'
               {}⎕SE.CITA.⎕FX hd
           :EndFor
+      600⌶1
+∘∘∘
+      600⌶0
           ⎕SE.CITA.UCMD._List←(¯1↓⎕SE.CITA.UCMD._List),']'
           :If 1  ⍝ MB
               'Fetched CITA⋄API!'
