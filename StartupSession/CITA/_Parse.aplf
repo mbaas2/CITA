@@ -1,11 +1,22 @@
-args←_Parse args;findLine
-:If ''=⍥⎕DR args
+ args←_Parse args;findLine;prs;split1;parser
+ :If ''=⍥⎕DR args
      findLine←{
-     ⍺←(2⊃⎕RSI).⎕NR 3⊃⎕SI
-      {' '∘(1↓,⊢⍤/⍨1(⊢∨⌽)0,≠)⍵}¨l↓¨(((l←2+≢⍵)↑¨⍺)∊⊂'⍝',⍵,':')/⍺
+         ⍺←(2⊃⎕RSI).⎕NR 3⊃⎕SI
+⍝         3::''   ⍝ treat it as optional - one of them WILL be there...
+         {' '∘(1↓,⊢⍤/⍨1(⊢∨⌽)0,≠)⍵}¨l↓¨(((l←2+≢⍵)↑¨⍺)∊⊂'⍝',⍵,':')/⍺
      }
 
      split1←{i←⍵⍳⍺ ⋄ (⍵[⍳i-1])(i↓⍵)}
-     parser←⎕NEW ⎕SE.Parser('' 'nargs=',¨⌽' 'split1 1⊃findLine'Parse')
+     prs←findLine'Parse'
+     :If 0=≢prs
+         :If ∨/'-ucmd=0'⍷args  ⍝ API-Calls are recognizeable
+             prs←1⊃findLine'ParseA'
+         :Else
+             prs←1⊃findLine'ParseU'
+         :EndIf
+     :Else
+         prs←1⊃prs
+     :EndIf
+     parser←⎕NEW ⎕SE.Parser('' 'nargs=',¨⌽' 'split1 prs)
      args←parser.Parse args
  :EndIf

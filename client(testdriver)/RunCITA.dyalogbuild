@@ -1,0 +1,10 @@
+DYALOG BUILD:1
+ID: RunCITA, Version=1
+
+APL: ./WS/*.dyalog,Target=#
+
+LX: lx
+
+DEFAULTS: ⎕ML←⎕IO←1
+
+TARGET: ./RunCITA,save=1
