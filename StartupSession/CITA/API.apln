@@ -3,6 +3,7 @@
 
     Timeout←180 ⍝ seconds before we consider a job to have timedout
 
+
     ∇ (R log)←APLVersions args;k;i;keys;int;exe;bak;cnt;file;json;old;doc;platform;fld;lglv;cJSON;z1;z2;t;old∆;k2
 ⍝:: Reports the current list of local interpreters (or updates it with the right modifieres set)
 ⍝?: Reports the current list of local interpreters (or updates it with the right modifieres set)
@@ -31,6 +32,7 @@
       args←##._Parse args  ⍝ ensure its a parsed arg...
       int←⍬
       cJSON←⎕JSON⍠'Compact' 0
+      log←''
       :If ⎕NEXISTS file←_FileWithListOfInterpreters
           log←⊂'Using list of interpreters from file "',file,'"'
           old∆←⎕JSON ⎕JSON old←(⎕JSON⍠'Dialect' 'JSON5')1⊃⎕NGET file
@@ -66,7 +68,7 @@
               :EndIf
               →End
           :EndIf
-      :Else
+      :Elseif 1≢args.Switch'update'
           log←⊂'No list of interpreters found. File ',file,' does not exist.'
           →End
       :EndIf
@@ -203,7 +205,7 @@
 ⍝?: Execute local tests
 ⍝?:
 ⍝?: ]ExecuteLocalTest <path>CITA.json[5] -all [-workdir=<location> [-empty] [-cleanup[=O|N]] | [-cleanup[=N]]] [-int=180U64...]
-⍝Parse:               1L                 -all  -workdir=            -empty   -cleanup[∊]ON -int∊0123456789UC
+⍝Parse:               1L                 -all  -workdir=            -empty   -cleanup[∊]ON -int∊0123456789UC,
 ⍝??: Execute local tests
 ⍝??:
 ⍝??: ]ExecuteLocalTest    <path>CITA.json[5] [-workdir=<location> [-empty] [-cleanup[=N|O]] | [-cleanup]] [-int=180U64...]
@@ -221,7 +223,7 @@
 ⍝??: -cleanup=N           delete only New files created while running the tests (keeps files copied from <path>)
 ⍝??: -cleanup=ON          delete all files in <location> after running tests
 ⍝??:
-      res←0 ⋄ Log←''
+      res←0 ⋄ Log←''  
       If←{⍵:⍺ ⋄ ⍬}  ⍝ syntax sugar for →
       arg←##._Parse arg  ⍝ ensure its a parsed arg...
       fl←∊1 ⎕NPARTS(1 ''##._getArg 1 arg)  ⍝ fld=folder, fl=path to a CITA.json
@@ -260,14 +262,14 @@
       Log,←lg
      
       :If arg.Switch'all'
-      :OrIf 0<≢int←''arg.Switch'int'
+      :OrIf 0<≢lint←''arg.Switch'int'
           lg←APLVersions'-ucmd=0 -loglevel=2 -compact'
           Log,←⊆lg
           t←1⊃⎕NGET _FileWithListOfInterpreters
           interpreters←_FoldJson t
           interpreters←({6::1 ⋄ 'doc'≢⍵.id:0=≢⍵.disabled ⋄ 0}¨interpreters)/interpreters
-          :If 0<≢int
-              interpreters←(interpreters.id∊','(≠⊆⊢)t)/interpreters
+          :If 0≢lint
+              interpreters←(interpreters.id∊','(≠⊆⊢)lint)/interpreters
           :EndIf
       :EndIf
       :For interpreter :In interpreters
@@ -276,9 +278,9 @@
      
      
           :If interpreter≡0
-              ⎕←t←{(⍕+/10 1×2↑2⊃'.'⎕VFI 2⊃⍵),('CU'[1+80=⎕DR' ']),(1+'64'≡¯2↑1⊃⍵)⊃'32' '64'}'.'⎕WG'aplversion'
+              t←{(⍕+/10 1×2↑2⊃'.'⎕VFI 2⊃⍵),('CU'[1+80=⎕DR' ']),(1+'64'≡¯2↑1⊃⍵)⊃'32' '64'}'.'⎕WG'aplversion'
           :Else
-              ⎕←t←interpreter.id
+              t←interpreter.id
               →NextInt If~⎕NEXISTS interpreter.exe ⍝ make sure interpreter does exist...
               :If 2=interpreter.⎕NC'disabled'
               :AndIf 0<≢interpreter.disabled
@@ -298,12 +300,10 @@
               :If (cnt+1)>≢resTab ⋄ resTab←resTab⍪⊂'' ⋄ resTab[cnt+1;1]←⊂specs.id ⋄ :EndIf
               :If 2=specs.⎕NC'disabled'
               :AndIf 0<≢specs.disabled
-                  ⎕←interpreter.id,' + ',specs.id,', cnt=',(⍕cnt),', int=',⍕int
                   resTab[cnt+1;int+1]←'~'
                   :Continue
               :EndIf
             ⍝   :If int=1 ⋄ resTab←resTab⍪⊂'' ⋄ resTab[cnt+1;1]←⊂specs.id ⋄ :EndIf
-              ⍞←specs.id,'...'
            ⍝ test if this apl qualifies...
               resTab[cnt+1;int+1]←'~'
               :If 0<≢v←specs.dyalogversions
@@ -376,7 +376,6 @@
      
               R←0 ''
               :For step :In 'setup' 'test' 'teardown'
-                  ⍞←step,'...'
                   :If step≡'test'
                   :AndIf 0=specs.⎕NC step
                       R←4 'Missing entry for step "test"'
@@ -421,7 +420,6 @@
               Log,←⊂''
      
               resTab[cnt+1;int+1]←'+-tni?'[0 1⍳⊃,rcTest]
-⍝              ⎕←interpreter.id,' + ',specs.id,', cnt=',(⍕cnt),', int=',(⍕int),', rc=',rcTest
               list2←⊃0(⎕NINFO⍠('Recurse' 1)('Wildcard' 1))xin∆,'*'   ⍝ remember files we had before tests were executed...
               del←0⍴⊂''
      
@@ -448,10 +446,11 @@
           :EndFor
      NextInt:
       :EndFor
-      ⎕←resTab
+      :if interpreters≢,0
       Log,←↓⍕resTab
       Log,←'' 'Explanation of status-symbols:'
       Log,←⊂'+=success, -=failure, ~=disabled, t=timeout, n=not supported, ?=?'
+      :endif
     ∇
 
 
@@ -513,7 +512,7 @@
           R←4('Did not recognize type of file "',file,'"') ⋄ →EndJob
       :EndSelect
       cmd,←' ',cfg
-      ⎕←(⎕UCS 13),'Executing APLProcess in dir ',xin,':' ⍝⋄ ⎕←interpreter.exe dws,' 'cmd
+    ⍝   ⎕←(⎕UCS 13),'Executing APLProcess in dir ',xin,':' ⍝⋄ ⎕←interpreter.exe dws,' 'cmd
       exited←¯1
       proc←⎕NEW APLProcess(dws cmd(interpreter{0::0 ⋄ ⍺⍎⍵}'exe')'' ''xin)
       ai3←⎕AI[3]

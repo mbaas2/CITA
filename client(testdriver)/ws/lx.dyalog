@@ -3,6 +3,7 @@
  v←1⊃'.'⎕VFI 2⊃'.'⎕WG'aplversion'
  Env←{2 ⎕NQ'.' 'GetEnvironment'⍵}  ⍝ get environment variable or cmdline
  HandleError←{
+     0::⎕←s
      s←'Loaded File "',⍺,'". Executing "',⍵,'" led to a trapped error: '
      s,←∊⎕DM,¨⎕TC[3]     
      s,←{0::{∊⎕DMX.({0::'' ⋄ ⍵,':',(⍎⍵),⎕TC[3]}¨⎕NL ¯2)}'' ⋄ ∊⎕JSON ⎕DMX}''   ⍝ various fallsbacks so that this code can execute even on v12 (where it does not do anything - but also does not fail)
@@ -10,7 +11,7 @@
      s ⎕se._cita.LogStatus 0
  }
 
-⍝ set up #._cita
+⍝ set up ⎕SE._cita
  ⎕SE.UCMD'GetTools4CITA'
  ⎕SE.UCMD'UDEBUG ON'  ⍝ only during testing...
 
