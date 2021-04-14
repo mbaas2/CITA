@@ -16,7 +16,7 @@
          cnt+←1
      :EndWhile
      3 ⎕MKDIR wd←dir
-     {}⎕SE.UCMD'res←ExecuteLocalTest ',params←##.TESTSOURCE,'/',wd∆,'/CITA.json5 -empty -workdir="',wd,'" -cleanup=O'   ⍝ include "-empty" because we run the test again (with the API)
+     {}⎕SE.UCMD⎕← 'res←ExecuteLocalTest ',params←##.TESTSOURCE,'/',wd∆,'/CITA.json5 -empty -workdir="',wd,'" -cleanup=O'   ⍝ include "-empty" because we run the test again (with the API)
 
    ⍝ now "res" has the log
    ⍝ examine whether it tells the expected success story ;)

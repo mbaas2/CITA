@@ -122,6 +122,7 @@
     ∇ R←FindCITA
     ⍝ I had expected this would turn out to be more complicated...
     ⍝ but doing it this way we don't even need the environment variable!
+    :trap 0
       :If 3=⎕SE.⎕NC'CITA._getArg'
       :AndIf 0<≢R←4⊃5179⌶'⎕SE.CITA._getArg'      ⍝ default (and preferred) approach
           R←1⊃⎕NPARTS R
@@ -138,6 +139,9 @@
           ∘∘∘
           600⌶0
       :EndIf
+      :else 
+      ⎕łjson ⎕dmx
+      :endtrap
     ∇
     :endsection
 :EndNamespace
