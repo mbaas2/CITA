@@ -1,0 +1,13 @@
+/********************************************************************************************
+
+            Testing CITA by running a test against all interpreters except 13 & 17
+
+ ********************************************************************************************/
+{
+    Tests: [{
+        id: "FailOn17Only",
+            "Test": "./FailOn17Only.aplf",
+            "DyalogVersions": ["12.","14.","15.",16,"18."],  // testing version selection...
+        }
+    ]
+}

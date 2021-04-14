@@ -35,8 +35,8 @@
           :If rc≡⍬
               r←⍬   ⍝ optionally API-fns may return rc as ⍬ which is an indicator to ommit the header (for "simple" this like reports in ]APLVersion)
           :Else
-              r←cmd,': ',{⍵=0:'success' ⋄ ('*** '/⍨0≠⍵),'FAILURE (return code=',(⍕⍵),')'},⊃,rc
-              r←l r(l←(⌈/(≢r),≢¨log)⍴'-─'[1+0=⊃,rc])
+              r←cmd,': ',{⍵=0:'success' ⋄ ⍵=¯1: 'warning' ⋄  ('*** '/⍨0≠⍵),'FAILURE (return code=',(⍕⍵),')'},⊃,rc
+              r←l r(l←(⌈/(≢r),≢¨log)⍴'─~-'[0 ¯1⍳⊃,rc])
           :EndIf
           r←r,eis log
           r←∊{1<|≡⍵: (↓⍕↑⍵),¨⎕ucs 13 ⋄ ⍵,⎕ucs 13}¨r

@@ -4,7 +4,7 @@
     Timeout←180 ⍝ seconds before we consider a job to have timedout
 
 
-    ∇ (R log)←APLVersions args;k;i;keys;int;exe;bak;cnt;file;json;old;doc;platform;fld;lglv;cJSON;z1;z2;t;old∆;k2
+    ∇ (R log)←APLVersions args;k;i;keys;int;exe;bak;cnt;file;json;old;doc;platform;fld;cJSON;z1;z2;t;old∆;k2;lglv
 ⍝:: Reports the current list of local interpreters (or updates it with the right modifieres set)
 ⍝?: Reports the current list of local interpreters (or updates it with the right modifieres set)
 ⍝?:
@@ -68,12 +68,12 @@
               :EndIf
               →End
           :EndIf
-      :Elseif 1≢args.Switch'update'
+      :ElseIf 1≢args.Switch'update'
           log←⊂'No list of interpreters found. File ',file,' does not exist.'
           →End
       :EndIf
      
-      :If ' '≡⍥⎕DR args.Switch'loglevel' ⋄ lglv←args.loglevel ⋄ :Else ⋄ lglv←2 ⋄ :EndIf ⍝ loglevel...
+      lglv←2 args.Switch'loglevel'
      
       :Select platform
      
@@ -200,7 +200,7 @@
       :EndIf
     ∇
 
-    ∇ {(res Log)}←ExecuteLocalTest arg;fld;fl;loc;xin;rc;specs;R;step;specsObj;lg;cnt;list;showedIO;log;del;list2;v;xin∆;jlog;cfg;rcTest;interpreters;interpreter;t;int;resTab;plus;V;B;b;E;xinO;If
+    ∇ {(res Log)}←ExecuteLocalTest arg;fld;fl;loc;xin;rc;specs;R;step;specsObj;lg;cnt;list;showedIO;log;del;list2;v;xin∆;jlog;cfg;rcTest;interpreters;interpreter;t;int;resTab;plus;V;B;b;E;xinO;If;lint;dot
 ⍝:: Execute local tests
 ⍝?: Execute local tests
 ⍝?:
@@ -223,7 +223,10 @@
 ⍝??: -cleanup=N           delete only New files created while running the tests (keeps files copied from <path>)
 ⍝??: -cleanup=ON          delete all files in <location> after running tests
 ⍝??:
-      res←0 ⋄ Log←''  
+⍝??: Hint: the result's header gives a first quick indication of the result: straight line indicates success. dashed line means failure!
+⍝??
+      res←¯1  ⍝ res=¯1 indicates no test were run!
+      Log←''
       If←{⍵:⍺ ⋄ ⍬}  ⍝ syntax sugar for →
       arg←##._Parse arg  ⍝ ensure its a parsed arg...
       fl←∊1 ⎕NPARTS(1 ''##._getArg 1 arg)  ⍝ fld=folder, fl=path to a CITA.json
@@ -253,6 +256,8 @@
       int←0  ⍝ count of interpreter
       interpreters←,0  ⍝ default (signals to APLProcess to use current)
       resTab←1 1⍴' '  ⍝ tests x Interpreters - a summary table of test-results  - first row/col contains ids/names
+      showedIO←0   ⍝ when we display test-counts instead of ids, give info about IO=1 (this var ensures we're doing it once only!)
+      rcTest←¯1  ⍝ ¯1: no tests executed
       :If (~⎕NEXISTS fl)∨'cita.json'≢9↑⎕C∊1↓⎕NPARTS fl ⋄ →0⊣(res Log)←700 'CITA.JSON[5] not found' ⋄ :EndIf
       (rc specsObj lg)←_GetTestSpecs fl
       :If rc≠0
@@ -260,7 +265,7 @@
           →0
       :EndIf
       Log,←lg
-     
+      lint←''
       :If arg.Switch'all'
       :OrIf 0<≢lint←''arg.Switch'int'
           lg←APLVersions'-ucmd=0 -loglevel=2 -compact'
@@ -268,10 +273,11 @@
           t←1⊃⎕NGET _FileWithListOfInterpreters
           interpreters←_FoldJson t
           interpreters←({6::1 ⋄ 'doc'≢⍵.id:0=≢⍵.disabled ⋄ 0}¨interpreters)/interpreters
-          :If 0≢lint
+          :If 0<≢lint
               interpreters←(interpreters.id∊','(≠⊆⊢)lint)/interpreters
           :EndIf
       :EndIf
+     ⍝ (⎕lc[1]+1)⎕stop 1⊃⎕si
       :For interpreter :In interpreters
      
           xin∆←xinO,{0::⍵ ⋄ interpreter.id,'_'}''
@@ -291,7 +297,6 @@
           resTab←resTab,⊂''
           resTab[1;1+int]←⊂t
           cnt←0
-          showedIO←0
           :If interpreters≢,0
               Log,←⊂'Interpreter ',interpreter.id
           :EndIf
@@ -305,7 +310,7 @@
               :EndIf
             ⍝   :If int=1 ⋄ resTab←resTab⍪⊂'' ⋄ resTab[cnt+1;1]←⊂specs.id ⋄ :EndIf
            ⍝ test if this apl qualifies...
-              resTab[cnt+1;int+1]←'~'
+              resTab[cnt+1;int+1]←'~'  ⍝ we assume it doesn't - this will be overridden later if it does
               :If 0<≢v←specs.dyalogversions
                   :If interpreter≡0
                       V←+/1 0.1×2↑2⊃'.'⎕VFI 2⊃'.'⎕WG'aplversion'  ⍝ current version
@@ -316,9 +321,18 @@
                   plus←0  ⍝ did we see a +sign?
                   :If (⎕DR' ')=⎕DR v  ⍝ , separated list or a single version, possibly with "+
                       v←','(≠⊆⊢)v
-                      (v plus)←↓⍉↑{p←'+'∊⍵ ⋄ (⊃2⊃⎕VFI ⍵~'+'),p}¨v
+                      (v plus dot)←↓⍉↑{(p d)←'+.'∊⍵ ⋄ (⊃2⊃⎕VFI ⍵~'+'),p,d}¨v
+                  :Else
+                      (v plus dot)←↓⍉↑{' '≠⍥⎕DR ⍵:⍵,0 0 ⋄ (p d)←'+.'∊⍵ ⋄ (⊃2⊃⎕VFI ⍵~'+'),p,d}¨v
                   :EndIf
-                  →EndForSpec If~∨/(V∊v),(v<V)∧plus
+                  :If ~∨/(V∊v),(plus∧v<V),(dot∧V∊⌊v)
+                      :If interpreter≡0
+                          Log,←⊂'Current interpreter (v=',(⍕V),') rejected by test which selected "',(⍕specs.dyalogversions),'"'
+                      :Else
+                          Log,←⊂'Interpreter ',interpreter.id,'(v=',(⍕V),') rejected by test which selected "',(⍕specs.dyalogversions),'"'
+                      :EndIf
+                      →EndForSpec
+                  :EndIf
               :EndIf
               :If 2=specs.⎕NC'bits'
                   :If interpreter≡0
@@ -326,7 +340,14 @@
                   :Else
                       B←interpreter.bits
                   :EndIf
-                  →EndForSpec If~B∊specs.bits
+                  :If ~B∊specs.bits
+                      :If interpreter≡0
+                          Log,←⊂'Current interpreter (bits=',(⍕B),') rejected by test which selected "',(⍕specs.bits),'"'
+                      :Else
+                          Log,←⊂'Interpreter ',interpreter.id,' rejected by test which selected "',(⍕specs.bits),'"'
+                      :EndIf
+                      →EndForSpec
+                  :EndIf
               :EndIf
      
               :If 2=specs.⎕NC'edition'
@@ -335,13 +356,18 @@
                   :Else
                       E←interpreter.edition
                   :EndIf
-                  →EndForSpec If~E∊specs.edition
+                  :If ~E∊specs.edition
+                      :If interpreter≡0
+                          Log,←⊂'Current interpreter (edition==',(⍕E),') rejected by test which selected "',(⍕specs.edition),'"'
+                      :Else
+                          Log,←⊂'Interpreter ',interpreter.id,' rejected by test which selected "',(⍕specs.edition),'"'
+                      :EndIf
+                      →EndForSpec
+                  :EndIf
               :EndIf
               resTab[cnt+1;int+1]←' '
      
-     
               log←''
-              rcTest←¯1
               :If xin∆≢fld
                   xin←xin∆,(⍕specs.id),'/'
                   :Trap 0
@@ -381,6 +407,8 @@
                       R←4 'Missing entry for step "test"'
                   :Else
                       fl←specs⍎step
+                      ⍝ ⎕← interpreter.id,' ',step
+                      ⍝ (⎕lc[1]+1)⎕stop 1⊃⎕si
                       (rc jlog)←R←step _RunJob cfg specs interpreter
                       :If (⊂step)∊'setup' 'test'
                           rcTest←rc
@@ -404,9 +432,10 @@
               :EndFor
      
      EndStep:
-              res←~(~res)∧rcTest=0
+              res←~(res∊0 ¯1)∧rcTest=0
               :If log≡'' ⋄ log←2⊃R ⋄ :EndIf
-              Log,←⊂(3⍴'·*'[1+rcTest≠0]),' ',('#',(⍕cnt),' ',((~showedIO)/' (⎕IO=1) '),{0<≢⍵:'"',⍵,'"'}specs.id),({⍵=0:': success ···' ⋄ ': FAILURE (return code = ',(⍕⍵),') ***'}rcTest)
+⍝              (⎕LC[1]+1)⎕STOP 1⊃⎕SI
+              Log,←⊂(3⍴'·~*'[0 ¯1⍳rcTest]),' ',('#',(⍕cnt),' ',((~showedIO)/' (⎕IO=1) '),{0<≢⍵:'"',⍵,'"'}specs.id),({⍵=0:': success ···' ⋄ ⍵=¯1:': not executed ~~~' ⋄ ': FAILURE (return code = ',(⍕⍵),') ***'}rcTest)
               showedIO←showedIO∨''≡⍥⎕DR specs.id
               :If 0<≢log,jlog
                   log←(⊆log),⊆jlog
@@ -434,23 +463,34 @@
                   del←(~list2∊list)/list2
               :Case 1
                   :If fld≢xin∆
-                      ⎕←'Use of modifier -cleanup without assignment of a value is not supported when -in is used '
+                      ⎕←'Use of modifier -cleanup without assignment of a value is not supported when -workdir is used '
                   :Else
                       del←(~list2∊list)/list2
                   :EndIf
               :Case 'O'
-                  del←list
+                  :If fld≡xin∆
+                      ⎕←'Use of modifier -cleanup=',v,' is not supported when -workdir was not given or the same as the source folder of CITA.json'
+                  :Else
+                      del←list2
+                  :EndIf
               :EndSelect
-              1 ⎕NDELETE⌽del
+              :Trap 0
+                  1 ⎕NDELETE⌽del   ⍝ we try to delete files and folders individually
+              :Else
+                  log←⊂'Trapped error while clearing folder "',xin∆,'":',nl,⎕JSON ⎕DMX
+                  res←702
+                  →EndStep
+              :EndTrap
      EndForSpec:
           :EndFor
      NextInt:
       :EndFor
-      :if interpreters≢,0
-      Log,←↓⍕resTab
-      Log,←'' 'Explanation of status-symbols:'
-      Log,←⊂'+=success, -=failure, ~=disabled, t=timeout, n=not supported, ?=?'
-      :endif
+      :If interpreters≢,0    ⍝ if we run against multiple interpreters
+      :AndIf rcTest≠¯1       ⍝ and tests were actually executed...
+          Log,←↓⍕resTab
+          Log,←'' 'Explanation of status-symbols:'
+          Log,←⊂'+=success, -=failure, ~=disabled, t=timeout, n=not supported, ?=?'
+      :EndIf
     ∇
 
 
@@ -490,17 +530,11 @@
       cpu←⎕AI[3]
       Fullname←∊1 ⎕NPARTS xin,file
       :Select ext←⎕C 3⊃⎕NPARTS file
-      :CaseList '.aplf' '.aplc'
-          :If V≥18
-              cmd←'LOAD="',Fullname,'"'
-          :Else
-              cmd←'CITATest="',Fullname,'"'
-              dws←∊1 ⎕NPARTS _FindCITA,'../../client(testdriver)/RunCITA'
-          :EndIf
-      :Case '.dws' ⋄ dws←Fullname
-      :Case '.dyalog'
-          cmd←'CITATest="',Fullname,'"'
+      :CaseList '.aplf' '.aplc' '.dyalog'
+          TestLog←xin,'CITA_',(2⊃⎕NPARTS(-(ext≡''))↓Fullname),'.log'
+          cmd←'CITATest="',Fullname,'" testlog="',TestLog,'"'
           dws←∊1 ⎕NPARTS _FindCITA,'../../client(testdriver)/RunCITA'
+      :Case '.dws' ⋄ dws←Fullname
       :CaseList '' '.dyalogtest'
           R←4('.dyalogtest or folder-argument only valid for "test", not "',step,'"') ⋄ →(step≢'test')/EndJob
           :If ext≡'' ⋄ :AndIf 1≠1 ⎕NINFO Fullname ⋄ R←4 ⋄ →EndJob ⋄ :EndIf  ⍝ no extension, but does not refer to a folder
@@ -512,7 +546,8 @@
           R←4('Did not recognize type of file "',file,'"') ⋄ →EndJob
       :EndSelect
       cmd,←' ',cfg
-    ⍝   ⎕←(⎕UCS 13),'Executing APLProcess in dir ',xin,':' ⍝⋄ ⎕←interpreter.exe dws,' 'cmd
+      ⍝ ⎕←'Executing APLProcess in dir ',xin,':',⎕ucs 13
+      ⍝ ⎕← interpreter.exe dws,' 'cmd
       exited←¯1
       proc←⎕NEW APLProcess(dws cmd(interpreter{0::0 ⋄ ⍺⍎⍵}'exe')'' ''xin)
       ai3←⎕AI[3]
@@ -647,5 +682,6 @@
       :EndSelect
       file←∊1 ⎕NPARTS docFld,'/interpreters.json5'
     ∇
+
     :endsection
 :endnamespace

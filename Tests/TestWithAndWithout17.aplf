@@ -1,0 +1,41 @@
+ r←TestWithAndWithout17;cnt;wd;res;expect;wd∆;dir;test4;rc;log;params;expect_rc
+⍝ this runs a test which is supposed to fail on v17 against all interpreters andf checks if the produce the expected result.
+⍝ We're using DTest here to launch CITA which uses plain functions and the "CITA Framework for tests". And we're also using the API
+⍝ to launch the same tests. This "main test" is only run in the current interpreter - the other tests do spawn off
+⍝ other interpreters and test against them.
+ r←''
+ :Trap 0
+     ⎕SE.CITA.API.APLVersions'-update -loglevel=1 -ucmd=0'   ⍝ call the API-function to update inventory of interpreters
+ :Else
+     →fail Because'Executing API-fn "APLVersions" crashed with this error: ',(⎕UCS 13),⎕JSON ⎕DMX
+ :Endtrap
+ :For (wd∆ expect) :In ('NoFailureWith17' 0)('FailureWith17' 1)
+   ⍝ 1. Test against the current interpreter
+     wd←##.TESTSOURCE,wd∆,'_wd' ⋄ cnt←0
+     :While ⎕NEXISTS dir←wd,{⍵=0:'' ⋄ ⍕⍵}cnt
+         cnt+←1
+     :EndWhile
+     3 ⎕MKDIR wd←dir
+     {}⎕SE.UCMD'res←ExecuteLocalTest ',params←##.TESTSOURCE,'/',wd∆,'/CITA.json5 -empty -workdir="',wd,'" -cleanup=O'   ⍝ include "-empty" because we run the test again (with the API)
+
+   ⍝ now "res" has the log
+   ⍝ examine whether it tells the expected success story ;)
+     test4←'-─'[2-expect]
+     :If expect_rc←expect   ⍝ if we expect a failure
+         :If 17=1⊃2⊃'.'⎕VFI 2⊃'.'⎕WG'APLVersion'  ⍝ we need to look at the the version we're running
+             test4←'-'
+         :Else
+             expect_rc←¯1 ⋄ test4←'~'     ⍝ because the test will only fail on 17...
+         :EndIf
+     :EndIf
+     :If test4 Check 1⊃res
+         →fail Because'Log did not commence with "',test4,'" as an indicator of ',((1+expect)⊃'failed ' 'successful'),' tests' ⋄ :EndIf
+
+    ⍝ also test the API
+     (rc log)←⎕SE.CITA.API.ExecuteLocalTest params
+     :If expect_rc Check rc
+         →fail Because'The API returned a different result than the UCMD!' ⋄ :EndIf
+
+     ⍝ 2. Test against all interpreters
+ :EndFor
+fail:
