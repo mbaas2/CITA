@@ -5,7 +5,7 @@
 ⍝ other interpreters and test against them.
  r←''
  :Trap 0
-     ⎕SE.CITA.API.APLVersions'-update -loglevel=1 -ucmd=0'   ⍝ call the API-function to update inventory of interpreters
+     {}⎕SE.CITA.API.APLVersions'-update -loglevel=1 -ucmd=0'   ⍝ call the API-function to update inventory of interpreters
  :Else
      →fail Because'Executing API-fn "APLVersions" crashed with this error: ',(⎕UCS 13),⎕JSON ⎕DMX
  :Endtrap
@@ -16,7 +16,11 @@
          cnt+←1
      :EndWhile
      3 ⎕MKDIR wd←dir
-     {}⎕SE.UCMD⎕← 'res←ExecuteLocalTest ',params←##.TESTSOURCE,'/',wd∆,'/CITA.json5 -empty -workdir="',wd,'" -cleanup=O'   ⍝ include "-empty" because we run the test again (with the API)
+     params←##.TESTSOURCE,'/',wd∆,'/CITA.json5 -empty -workdir="',wd,'" -cleanup=O'   ⍝ include "-empty" because we run the test again (with the API)
+     :if ##.verbose 
+     ⎕←'Executing local test with params ',params
+     :endif
+     {}⎕SE.UCMD'res←ExecuteLocalTest ',params
 
    ⍝ now "res" has the log
    ⍝ examine whether it tells the expected success story ;)
@@ -28,10 +32,12 @@
              expect_rc←¯1 ⋄ test4←'~'     ⍝ because the test will only fail on 17...
          :EndIf
      :EndIf
+     :if ###.verbose ⋄ ⎕←'Does log commence with "',test4,'"?'⋄:endif
      :If test4 Check 1⊃res
          →fail Because'Log did not commence with "',test4,'" as an indicator of ',((1+expect)⊃'failed ' 'successful'),' tests' ⋄ :EndIf
 
     ⍝ also test the API
+    :if ##.verbose ⋄ ⎕←'Test API with the same call' ⋄ :endif
      (rc log)←⎕SE.CITA.API.ExecuteLocalTest params
      :If expect_rc Check rc
          →fail Because'The API returned a different result than the UCMD!' ⋄ :EndIf

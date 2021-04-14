@@ -6,7 +6,7 @@
 {
     Tests: [{
         id: "FailOn17Only",
-            "Test": "../FailOn17Only.aplf",
+            "Test": "FailOn17Only.aplf",
             "DyalogVersions": [17,17.1]
         }
     ]
