@@ -32,7 +32,7 @@
              expect_rc←¯1 ⋄ test4←'~'     ⍝ because the test will only fail on 17...
          :EndIf
      :EndIf
-     :if ###.verbose ⋄ ⎕←'Does log commence with "',test4,'"?'⋄:endif
+     :if ##.verbose ⋄ ⎕←'Does log commence with "',test4,'"?'⋄:endif
      :If test4 Check 1⊃res
          →fail Because'Log did not commence with "',test4,'" as an indicator of ',((1+expect)⊃'failed ' 'successful'),' tests' ⋄ :EndIf
 

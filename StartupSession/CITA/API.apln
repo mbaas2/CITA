@@ -28,176 +28,176 @@
 ⍝ 3 - everything
 ⍝
 ⍝ Additionally, the API-Call can use the option "-compact" to generate two-row report of enabled & disabled APL-Interpreters
-
- args←##._Parse args  ⍝ ensure its a parsed arg...
- int←⍬
- cJSON←⎕JSON⍠'Compact' 0
- log←''
- :If ⎕NEXISTS file←_FileWithListOfInterpreters
-     log←⊂'Using list of interpreters from file "',file,'"'
-     old∆←⎕JSON ⎕JSON old←(⎕JSON⍠'Dialect' 'JSON5')1⊃⎕NGET file
-     :If 0≡args.Switch'update'
-         Disable←{⍝ ⍺=interpreters,  ⍵[1] ids to handle, ⍵[2]=new value
-             i←⍸⍺.id∊int←','(≠⊆⊢)1⊃⍵
-             ⍺[i].disabled←⍵[2]
-             z←~int∊⍺.id
-             1=∨/z:⎕←'Version(s) ',(¯2↓∊'"',¨int,¨⊂'", '),' not found!'
-         }
-         :If 0≢t←args.Switch'disable'
-             :If t≡1 ⋄ t←¯1↓∊old.id,¨',' ⋄ :EndIf
-             old Disable t(∊'"Disabled with ""]APLVersions -disable"" on "Dddd, DDoo Mmmm YYYY; hh:mm:ss'(1200⌶)1 ⎕DT⊂⎕TS)
-         :EndIf
-         :If 0≢t←args.Switch'enable'
-             :If t≡1 ⋄ t←¯1↓∊old.id,¨',' ⋄ :EndIf
-             old Disable t''
-         :EndIf
-         k←↑7↑¨({6::0 ⋄ 'doc'≢⍵.id:0=≢⍵.disabled ⋄ 0}¨old)/old.id
-         k2←↑7↑¨({6::1 ⋄ 'doc'≢⍵.id:0<≢⍵.disabled ⋄ 0}¨old)/old.id
-         :If 1≡args.Switch'compact'
-             log,←⊂'enabled : ',¯2↓,(k,','),' '
-             log,←⊂'disabled: ',¯2↓,(k2,','),' '
-         :Else
-             log,←⊂'enabled   disabled'
-             log,←⊂'-------   --------'
-             log,←↓k{a←⍺,' ' ⋄ a,⍥{(a⌈⍥≢w)↑⍵}⍵}w←' ',' ',k2
-         :EndIf
-         R←⍬
-         :If old≢old∆
-             (⊂cJSON old)⎕NPUT file 1
+     
+      args←##._Parse args  ⍝ ensure its a parsed arg...
+      int←⍬
+      cJSON←⎕JSON⍠'Compact' 0
+      log←''
+      :If ⎕NEXISTS file←_FileWithListOfInterpreters
+          log←⊂'Using list of interpreters from file "',file,'"'
+          old∆←⎕JSON ⎕JSON old←(⎕JSON⍠'Dialect' 'JSON5')1⊃⎕NGET file
+          :If 0≡args.Switch'update'
+              Disable←{⍝ ⍺=interpreters,  ⍵[1] ids to handle, ⍵[2]=new value
+                  i←⍸⍺.id∊int←','(≠⊆⊢)1⊃⍵
+                  ⍺[i].disabled←⍵[2]
+                  z←~int∊⍺.id
+                  1=∨/z:⎕←'Version(s) ',(¯2↓∊'"',¨int,¨⊂'", '),' not found!'
+              }
+              :If 0≢t←args.Switch'disable'
+                  :If t≡1 ⋄ t←¯1↓∊old.id,¨',' ⋄ :EndIf
+                  old Disable t(∊'"Disabled with ""]APLVersions -disable"" on "Dddd, DDoo Mmmm YYYY; hh:mm:ss'(1200⌶)1 ⎕DT⊂⎕TS)
+              :EndIf
+              :If 0≢t←args.Switch'enable'
+                  :If t≡1 ⋄ t←¯1↓∊old.id,¨',' ⋄ :EndIf
+                  old Disable t''
+              :EndIf
+              k←↑7↑¨({6::0 ⋄ 'doc'≢⍵.id:0=≢⍵.disabled ⋄ 0}¨old)/old.id
+              k2←↑7↑¨({6::1 ⋄ 'doc'≢⍵.id:0<≢⍵.disabled ⋄ 0}¨old)/old.id
+              :If 1≡args.Switch'compact'
+                  log,←⊂'enabled : ',¯2↓,(k,','),' '
+                  log,←⊂'disabled: ',¯2↓,(k2,','),' '
+              :Else
+                  log,←⊂'enabled   disabled'
+                  log,←⊂'-------   --------'
+                  log,←↓k{a←⍺,' ' ⋄ a,⍥{(a⌈⍥≢w)↑⍵}⍵}w←' ',' ',k2
+              :EndIf
+              R←⍬
+              :If old≢old∆
+                  (⊂cJSON old)⎕NPUT file 1
                   ⍝     log,←⊂'Updated file "',file,'"'
-         :EndIf
-         →End
-     :EndIf
- :ElseIf 1≢args.Switch'update'
-     log←⊂'No list of interpreters found. File ',file,' does not exist.'
-     →End
- :EndIf
-
- lglv←2 args.Switch'loglevel'
-
- :Select platform
-
- :Case 'Win'
-     keys←##.WinReg.GetAllSubKeyNames dyalog←'HKEY_CURRENT_USER\SOFTWARE\Dyalog'
-     :For k :In keys
-         :If (12↑k)≡'Dyalog APL/W'  ⍝ is it an interpreter
-             exe←(##.WinReg.GetString dyalog,'\',k,'\Dyalog'){⍺,((~∨/'\/'=¯1↑⍺)/'\'),⍵}'dyalog.exe'
-             :If ⎕NEXISTS exe
-                 i←⎕NS'' ⍝ collect data in this ns
-                 i.exe←∊1 ⎕NPARTS exe
-                 i.Bits←(32 64)[1+'-64'≡3↑12↓k]
-                 i.Edition←'CU'[1+∨/'Unicode'⍷k]
-                 i.Version←3⊃2⊃' '⎕VFI k
-                 i.id←i.((⍕Version×10),Edition,⍕Bits)
-                 int,←i
-             :ElseIf lglv>1
-                 log,←⊂'Registry key "',k,'" was not considered because "',exe,'" was not found!'
-             :EndIf
-         :EndIf
-     :EndFor
- :Case 'Mac'
-     :For fld :In '/Applications/Dyalog*' '/Dyalog/Dyalog*'
-         :For k :In ⊃0(⎕NINFO⍠1)
-             exe←k,'/Contents/Resources/Dyalog/mapl'
-             :If ⎕NEXISTS exe
-                 i←⎕NS'' ⍝ collect data in this ns
-                 i.exe←∊1 ⎕NPARTS exe
-                 i.Bits←64
-                 i.Edition←'U'
-                 i.Version←2⊃2⊃'-'⎕VFI ¯4↓k
-                 i.id←i.((⍕Version×10),Edition,⍕Bits)
-                 int,←i
-             :ElseIf lglv>1
-                 log,←⊂'Folder "',k,'" was excluded because it did not contain expected "',exe,'"'
-             :EndIf
-         :EndFor
-     :EndFor
- :Case 'Lin'
-     :For exe :In ⊃0(⎕NINFO⍠'Recurse' 1)'/opt/mdyalog/mapl'
-         :If ⎕NEXISTS exe
-             i←⎕NS'' ⍝ collect data in this ns
-             i.exe←∊1 ⎕NPARTS exe
-             i.Bits←64
-             i.Edition←'CU'[1+∨/'unicode'⍷exe]
-             i.Version←4⊃2⊃'/'⎕VFI exe
-             i.id←i.((⍕Version×10),Edition,⍕Bits)
-             int,←i
-         :ElseIf lglv>1
-             log,←⊂'Folder "',k,'" was excluded because it did not contain expected "',exe,'"'
-         :EndIf
-     :EndFor
-
- :EndSelect
-
-
-
- :If 0<≢int
-     doc←⎕NS''
-     doc.id←'doc'
-     doc._←⊂'This file is created, used and updated by CITA (Continous Integration & Testing in APL)         '
-     doc._,←⊂'------------------------------------------------------------------------------------------------'
-     doc._,←⊂'It contains the complete inventory of locally installed interpreters that might be used in tests'
-     doc._,←⊂'when ExecuteLocalTests is called with the ''a''-Flag.                                             '
-     doc._,←⊂'It is possible to indicate non-availability for tests of individual interpreters by setting     '
-     doc._,←⊂'''disabled'' to a non-empty string.                                                               '
-     doc._,←⊂'The ''id''-field is used to identify interpreters, while ''Bits'' and ''Edition'' describe the        '
-     doc._,←⊂'respective characteristics of an interpreter.                                                   '
-     doc._,←⊂'If any interpreter in this list should not be found again on a re-scan, its entry will get      '
-     doc._,←⊂'a value in the ''disabled''-field, we never delete from this list! Newly installed interpreters   '
-     doc._,←⊂'will be added (and will be enabled) automatically.                                              '
-     doc.disabled←'Doc is read, not executed!'
-
-     int←doc,int
-
-     :If ⎕NEXISTS file
-         :If old.id≡(⊂'doc'),int.id
-         :AndIf old≡⍥{6::'' ⋄ ⍵.disabled}int  ⍝ also compare "disabled" - but avoid VALUE ERRORs
-         :AndIf old≡⍥{6::'' ⋄ ⍵.exe}int
-             R←1
-             :If lglv>0 ⋄ log←⊂'No changes found - file "',file,'" was not replaced' ⋄ :EndIf
-             →End
-         :Else
-             z1←({6::1 ⋄ 0=≢⍵.disabled}¨old)∧~old.id∊int.id
-             :If ∨/z1
-                 (z1/old)⍎¨⊂'disabled←∊''"Disabled by interpreter-scan on "Dddd, DDoo Mmmm YYYY; hh:mm:ss''(1200⌶)1 ⎕DT ⊂⎕TS'
-                 :If lglv>1
-                     log,←⊂'Disabled ',(¯2↓∊'"',¨z1/old.id,¨⊂'", '),' which were not found'
-                 :EndIf
-             :EndIf
-             z2←~int.id∊old.id
-             old←old,z2/int
-             :If ∨/z2
-                 (z2/int)⍎¨⊂'Added←∊''"Added on "Dddd, DDoo Mmmm YYYY; hh:mm:ss''(1200⌶)1 ⎕DT ⊂⎕TS'
-                 :If lglv>1
-                     log,←⊂'Found and included new interpreters: ',¯2↓∊'"',¨z2/int.id,¨⊂'", '
-                 :EndIf
-             :EndIf
-             :If 1∊z1,z2
-                 old←old[⍋old.id]
-                 old←old[(≢old){⍵,(⍳⍺)~⍵}old.id⍳⊂'doc']  ⍝ make sure doc stays on top
-                 (⊂cJSON old)⎕NPUT file 1
-                 :If lglv>0
-                     log,←⊂'Updated "',file,'"'
-                 :EndIf
-             :Else
-                 log←'No changes found, "',file,'" is still current.'
-             :EndIf
-         :EndIf
-     :Else
-         :If lglv>0
-             log,←⊂'Created "',file,'"'
-         :EndIf
-         (⊂cJSON int)⎕NPUT file
-     :EndIf
-     R←1
- :Else
-     R←0
-     log,←⊂'Nothing to do - no interpreters found! (How did you even execute this code?)'
- :EndIf
-End:
- :If 1≡args.Switch'ucmd'
-     R←⍬  ⍝ no need to show interpretation of rc when running UCMD
- :EndIf
+              :EndIf
+              →End
+          :EndIf
+      :ElseIf 1≢args.Switch'update'
+          log←⊂'No list of interpreters found. File ',file,' does not exist.'
+          →End
+      :EndIf
+     
+      lglv←2 args.Switch'loglevel'
+     
+      :Select platform
+     
+      :Case 'Win'
+          keys←##.WinReg.GetAllSubKeyNames dyalog←'HKEY_CURRENT_USER\SOFTWARE\Dyalog'
+          :For k :In keys
+              :If (12↑k)≡'Dyalog APL/W'  ⍝ is it an interpreter
+                  exe←(##.WinReg.GetString dyalog,'\',k,'\Dyalog'){⍺,((~∨/'\/'=¯1↑⍺)/'\'),⍵}'dyalog.exe'
+                  :If ⎕NEXISTS exe
+                      i←⎕NS'' ⍝ collect data in this ns
+                      i.exe←∊1 ⎕NPARTS exe
+                      i.Bits←(32 64)[1+'-64'≡3↑12↓k]
+                      i.Edition←'CU'[1+∨/'Unicode'⍷k]
+                      i.Version←3⊃2⊃' '⎕VFI k
+                      i.id←i.((⍕Version×10),Edition,⍕Bits)
+                      int,←i
+                  :ElseIf lglv>1
+                      log,←⊂'Registry key "',k,'" was not considered because "',exe,'" was not found!'
+                  :EndIf
+              :EndIf
+          :EndFor
+      :Case 'Mac'
+          :For fld :In '/Applications/Dyalog*' '/Dyalog/Dyalog*'
+              :For k :In ⊃0(⎕NINFO⍠1)
+                  exe←k,'/Contents/Resources/Dyalog/mapl'
+                  :If ⎕NEXISTS exe
+                      i←⎕NS'' ⍝ collect data in this ns
+                      i.exe←∊1 ⎕NPARTS exe
+                      i.Bits←64
+                      i.Edition←'U'
+                      i.Version←2⊃2⊃'-'⎕VFI ¯4↓k
+                      i.id←i.((⍕Version×10),Edition,⍕Bits)
+                      int,←i
+                  :ElseIf lglv>1
+                      log,←⊂'Folder "',k,'" was excluded because it did not contain expected "',exe,'"'
+                  :EndIf
+              :EndFor
+          :EndFor
+      :Case 'Lin'
+          :For exe :In ⊃0(⎕NINFO⍠'Recurse' 1)'/opt/mdyalog/mapl'
+              :If ⎕NEXISTS exe
+                  i←⎕NS'' ⍝ collect data in this ns
+                  i.exe←∊1 ⎕NPARTS exe
+                  i.Bits←64
+                  i.Edition←'CU'[1+∨/'unicode'⍷exe]
+                  i.Version←4⊃2⊃'/'⎕VFI exe
+                  i.id←i.((⍕Version×10),Edition,⍕Bits)
+                  int,←i
+              :ElseIf lglv>1
+                  log,←⊂'Folder "',k,'" was excluded because it did not contain expected "',exe,'"'
+              :EndIf
+          :EndFor
+     
+      :EndSelect
+     
+     
+     
+      :If 0<≢int
+          doc←⎕NS''
+          doc.id←'doc'
+          doc._←⊂'This file is created, used and updated by CITA (Continous Integration & Testing in APL)         '
+          doc._,←⊂'------------------------------------------------------------------------------------------------'
+          doc._,←⊂'It contains the complete inventory of locally installed interpreters that might be used in tests'
+          doc._,←⊂'when ExecuteLocalTests is called with the ''a''-Flag.                                             '
+          doc._,←⊂'It is possible to indicate non-availability for tests of individual interpreters by setting     '
+          doc._,←⊂'''disabled'' to a non-empty string.                                                               '
+          doc._,←⊂'The ''id''-field is used to identify interpreters, while ''Bits'' and ''Edition'' describe the        '
+          doc._,←⊂'respective characteristics of an interpreter.                                                   '
+          doc._,←⊂'If any interpreter in this list should not be found again on a re-scan, its entry will get      '
+          doc._,←⊂'a value in the ''disabled''-field, we never delete from this list! Newly installed interpreters   '
+          doc._,←⊂'will be added (and will be enabled) automatically.                                              '
+          doc.disabled←'Doc is read, not executed!'
+     
+          int←doc,int
+     
+          :If ⎕NEXISTS file
+              :If old.id≡(⊂'doc'),int.id
+              :AndIf old≡⍥{6::'' ⋄ ⍵.disabled}int  ⍝ also compare "disabled" - but avoid VALUE ERRORs
+              :AndIf old≡⍥{6::'' ⋄ ⍵.exe}int
+                  R←1
+                  :If lglv>0 ⋄ log←⊂'No changes found - file "',file,'" was not replaced' ⋄ :EndIf
+                  →End
+              :Else
+                  z1←({6::1 ⋄ 0=≢⍵.disabled}¨old)∧~old.id∊int.id
+                  :If ∨/z1
+                      (z1/old)⍎¨⊂'disabled←∊''"Disabled by interpreter-scan on "Dddd, DDoo Mmmm YYYY; hh:mm:ss''(1200⌶)1 ⎕DT ⊂⎕TS'
+                      :If lglv>1
+                          log,←⊂'Disabled ',(¯2↓∊'"',¨z1/old.id,¨⊂'", '),' which were not found'
+                      :EndIf
+                  :EndIf
+                  z2←~int.id∊old.id
+                  old←old,z2/int
+                  :If ∨/z2
+                      (z2/int)⍎¨⊂'Added←∊''"Added on "Dddd, DDoo Mmmm YYYY; hh:mm:ss''(1200⌶)1 ⎕DT ⊂⎕TS'
+                      :If lglv>1
+                          log,←⊂'Found and included new interpreters: ',¯2↓∊'"',¨z2/int.id,¨⊂'", '
+                      :EndIf
+                  :EndIf
+                  :If 1∊z1,z2
+                      old←old[⍋old.id]
+                      old←old[(≢old){⍵,(⍳⍺)~⍵}old.id⍳⊂'doc']  ⍝ make sure doc stays on top
+                      (⊂cJSON old)⎕NPUT file 1
+                      :If lglv>0
+                          log,←⊂'Updated "',file,'"'
+                      :EndIf
+                  :Else
+                      log←'No changes found, "',file,'" is still current.'
+                  :EndIf
+              :EndIf
+          :Else
+              :If lglv>0
+                  log,←⊂'Created "',file,'"'
+              :EndIf
+              (⊂cJSON int)⎕NPUT file
+          :EndIf
+          R←1
+      :Else
+          R←0
+          log,←⊂'Nothing to do - no interpreters found! (How did you even execute this code?)'
+      :EndIf
+     End:
+      :If 1≡args.Switch'ucmd'
+          R←⍬  ⍝ no need to show interpretation of rc when running UCMD
+      :EndIf
     ∇
 
     ∇ {(res Log)}←ExecuteLocalTest arg;fld;fl;loc;xin;rc;specs;R;step;specsObj;lg;cnt;list;showedIO;log;del;list2;v;xin∆;jlog;cfg;rcTest;interpreters;interpreter;t;int;resTab;plus;V;B;b;E;xinO;If;lint;dot
@@ -325,7 +325,7 @@ End:
                   :Else
                       (v plus dot)←↓⍉↑{' '≠⍥⎕DR ⍵:⍵,0 0 ⋄ (p d)←'+.'∊⍵ ⋄ (⊃2⊃⎕VFI ⍵~'+'),p,d}¨v
                   :EndIf
-                  :If ~∨/(V∊v),(plus∧v<V),(dot∧V∊⌊v)
+                  :If ~∨/(V∊v),(plus∧v<V),(dot∧V∊⍥⌊v)
                       :If interpreter≡0
                           Log,←⊂'Current interpreter (v=',(⍕V),') rejected by test which selected "',(⍕specs.dyalogversions),'"'
                       :Else
@@ -526,21 +526,20 @@ End:
       cfg,←' LOG_FILE="',(log_file←xin,'log_',step,'.dlf'),'" CITA_Log="',(∊2↑⎕NPARTS 1⊃StatusFiles),'"'
       cfg,←' APLCORENAME="',xin,'APLCORE_',step,'."'
      
-      :If 0=⎕NC'APLProcess' ⋄ ⎕SE.SALT.Load _FindCITA,'APLProcess' ⋄ :EndIf
       cpu←⎕AI[3]
       Fullname←∊1 ⎕NPARTS xin,file
       :Select ext←⎕C 3⊃⎕NPARTS file
       :CaseList '.aplf' '.aplc' '.dyalog'
           TestLog←xin,'CITA_',(2⊃⎕NPARTS(-(ext≡''))↓Fullname),'.log'
           cmd←'CITATest="',Fullname,'" testlog="',TestLog,'"'
-          dws←∊1 ⎕NPARTS _FindCITA,'../../client(testdriver)/RunCITA'
+          dws←∊1 ⎕NPARTS ⎕se.CITA.Home,'/client(testdriver)/RunCITA'
       :Case '.dws' ⋄ dws←Fullname
       :CaseList '' '.dyalogtest'
           R←4('.dyalogtest or folder-argument only valid for "test", not "',step,'"') ⋄ →(step≢'test')/EndJob
           :If ext≡'' ⋄ :AndIf 1≠1 ⎕NINFO Fullname ⋄ R←4 ⋄ →EndJob ⋄ :EndIf  ⍝ no extension, but does not refer to a folder
           TestLog←xin,'CITA_',(2⊃⎕NPARTS(-(ext≡''))↓Fullname),'.log'
           cmd←'CITATest="',Fullname,'"  testlog="',TestLog,'" ',specs{6::'' ⋄ 'dtestmods="',(⍺⍎⍵),'"'}'dtestmodifiers'
-          dws←∊1 ⎕NPARTS _FindCITA,'../../client(testdriver)/RunCITA'
+          dws←'"',∊1 ⎕NPARTS ⎕se.CITA.Home,'/client(testdriver)/RunCITA"'
           isDTest←1
       :Else
           R←4('Did not recognize type of file "',file,'"') ⋄ →EndJob
@@ -549,7 +548,7 @@ End:
       ⍝ ⎕←'Executing APLProcess in dir ',xin,':',⎕ucs 13
       ⍝ ⎕← interpreter.exe dws,' 'cmd
       exited←¯1
-      proc←⎕NEW APLProcess(dws cmd(interpreter{0::0 ⋄ ⍺⍎⍵}'exe')'' ''xin)
+      proc←⎕NEW ##.APLProcess(dws cmd(interpreter{0::0 ⋄ ⍺⍎⍵}'exe')'' ''xin)
       ai3←⎕AI[3]
       :While ~proc.IsRunning proc.Proc.Id ⋄ ai3←⎕AI[3] ⋄ :EndWhile   ⍝ wait until process has started
       :Repeat
@@ -644,25 +643,6 @@ End:
       R←0
     ∇
 
-    ∇ R←_FindCITA
-    ⍝ I had expected this would turn out to be more complicated...
-    ⍝ but doing it this way we don't even need the environment variable!
-      :If 3=⎕SE.⎕NC'CITA._getArg'
-      :AndIf 0<≢R←4⊃5179⌶'⎕SE.CITA._getArg'      ⍝ default (and preferred) approach
-          R←1⊃⎕NPARTS R
-      :ElseIf 0<≢R←4⊃5179⌶⎕SE.CITA.API  ⍝ also acceptable...
-          R←1⊃⎕NPARTS R
-      :ElseIf 2=##.⎕NC't'   ⍝ during List
-          R←∊1 ⎕NPARTS(##.t~'"'),'/../../../StartupSession/CITA'
-      :ElseIf 2=##.##.⎕NC't'   ⍝ saw that stack as well during spc.List
-          R←∊1 ⎕NPARTS(##.##.t~'"'),'/../../../StartupSession/CITA'
-      :Else  ⍝ take out before going into production...
-          600⌶1
-          ∘∘∘
-          600⌶0
-      :EndIf
-    ∇
-
       _FoldJson←{
           Apl←0 ⎕JSON⍠'Dialect' 'JSON5'⊢
           Json←1 ⎕JSON⍠'Compact' 0⊢
@@ -671,19 +651,72 @@ End:
       }
 
 
-∇ file←_FileWithListOfInterpreters;docFld
- :Select platform←3↑1⊃'.'⎕WG'APLVersion'
- :Case 'Win'
-     docFld←(2 ⎕NQ'.' 'GetEnvironment' 'USERPROFILE'),'/Documents/Dyalog APL Files'
- :Case 'Lin'
-     docFld←'/home/',⎕AN,'/dyalog.files'
- :Case 'Mac'
-     docFld←'/home/',⎕AN,'/dyalog.files'
- :EndSelect
- :If ~⎕NEXISTS docFld
-     ⎕MKDIR docFld
- :EndIf
- file←∊1 ⎕NPARTS docFld,'/interpreters.json5'
- ∇
+    ∇ file←_FileWithListOfInterpreters;docFld
+      :Select platform←3↑1⊃'.'⎕WG'APLVersion'
+      :Case 'Win'
+          docFld←(2 ⎕NQ'.' 'GetEnvironment' 'USERPROFILE'),'/Documents/Dyalog APL Files'
+      :Case 'Lin'
+          docFld←'/home/',⎕AN,'/dyalog.files'
+      :Case 'Mac'
+          docFld←'/home/',⎕AN,'/dyalog.files'
+      :EndSelect
+      :If ~⎕NEXISTS docFld
+          ⎕MKDIR docFld
+      :EndIf
+      file←∊1 ⎕NPARTS docFld,'/interpreters.json5'
+    ∇
     :endsection
+
+
+
+    :section UCMDs
+
+
+    ∇ _InitUCMDs;fn;_quote;_findLine;nr;j;parse;maxH;h;hd;r
+      ⎕SE.CITA.UCMD._List←'[',⎕UCS 13
+      ⎕SE.CITA.UCMD._Help←0 3⍴''
+      _quote←{'"',⍵,'"'}
+      _findLine←{{(+/∧\⍵=' ')↓⍵}¨l↓¨(((l←2+≢⍵)↑¨⍺)≡¨⊂'⍝',⍵,':')/⍺}
+      :For fn :In {('_'≠1⊃¨⍵)/⍵}⎕SE.CITA.API.⎕NL-3  ⍝ only for fns NOT starting with '_'
+          nr←⎕SE.CITA.API.⎕NR fn
+          j←'{'
+          j,←'"Name":',_quote fn
+          j,←',"Desc":',_quote∊nr _findLine':'
+             ⍝ Parse: we also support parseU/parseA to allow for different syntax when API-Fn is used via UCMD or API-Calls.
+          :If 0=≢parse←∊nr _findLine'Parse'
+              parse←∊nr _findLine'ParseU'
+          :EndIf
+          j,←',"Parse":',_quote parse
+          j,←',"Group":"CITA"'
+          j,←'}'
+          ⎕SE.CITA.UCMD._List,←j,','
+          maxH←⌈/0,∊('⍝(\?*):'⎕S{¯1↑⍵.Lengths})nr
+          :For h :In ⍳maxH
+              ⎕SE.CITA.UCMD._Help⍪←(⊂fn),(h-1),[1.5]nr _findLine h⍴'?'
+          :EndFor
+          :Select 2⊃1⊃AT←⎕SE.CITA.API.⎕AT fn
+          :Case 0 ⍝ niladic or not a fn
+              hd←fn
+          :Case 1 ⍝ monadic
+              hd←fn,' rarg'
+          :CaseList ¯2 2
+              hd←'larg ',fn,' rarg'
+          :EndSelect
+          :Select 1⊃1⊃⎕SE.CITA.API.⎕AT fn
+          :Case 1 ⋄ hd←'R←',hd
+          :Case ¯1 ⋄ hd←'{R}←',hd
+          :EndSelect
+          r←'←'∊hd
+          hd←(⊂hd),⊂':if 2=⎕nc''larg''⋄',(r/'R←'),'larg _getAPI ''',fn,''' rarg'
+          hd,←⊂':else⋄',(r/'R←'),'_getAPI ''',fn,''' rarg'
+          hd,←⊂':endif'
+          {}⎕SE.CITA.⎕FX hd
+      :EndFor
+      ⎕SE.CITA.UCMD._List←(¯1↓⎕SE.CITA.UCMD._List),']'
+    ∇
+
+
+    :endsection
+
+
 :endnamespace

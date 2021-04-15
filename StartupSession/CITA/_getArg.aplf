@@ -9,12 +9,12 @@
  :EndIf
 
 
- :If (⎕DR' ')=⎕DR name   ⍝ a switch...
- :AndIf 2=⎕NC'req_dflt'
+ :If ' '=⍥⎕DR name                 ⍝ a switch...
+ :AndIf 2=⎕NC'req_dflt'             ⍝ with a default value
      R←dflt args.Switch name
- :ElseIf (⎕DR' ')=⎕DR name
+ :ElseIf ' '=⍥⎕DR name             ⍝ and without one
      R←args.Switch name
- :ElseIf (⊂'_',⍕name)∊args.SwD[;1]
+ :ElseIf (⊂'_',⍕name)∊args.SwD[;1]  ⍝ name is a number and the index of an argument (the nth)
      R←args⍎'_',⍕name
  :Else
      R←dflt
