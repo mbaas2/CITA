@@ -7,7 +7,7 @@
     Tests: [{
         id: "FailOn17Only",
             "Test": "FailOn17Only.aplf",
-            "DyalogVersions": [17,17.1]
+            "DyalogVersions": [17.0,17.1]  
         }
     ]
 }

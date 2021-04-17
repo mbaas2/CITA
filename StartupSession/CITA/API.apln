@@ -1,8 +1,10 @@
 :namespace API
     nl←⎕UCS 13
-
+    ⎕ml←1
+    ⎕io←1
     Timeout←180 ⍝ seconds before we consider a job to have timedout
-
+    DEBUG←1
+      If←/⍨   ⍝  AB's father
 
     ∇ (R log)←APLVersions args;k;i;keys;int;exe;bak;cnt;file;json;old;doc;platform;fld;cJSON;z1;z2;t;old∆;k2;lglv
 ⍝:: Reports the current list of local interpreters (or updates it with the right modifieres set)
@@ -200,15 +202,15 @@
       :EndIf
     ∇
 
-    ∇ {(res Log)}←ExecuteLocalTest arg;fld;fl;loc;xin;rc;specs;R;step;specsObj;lg;cnt;list;showedIO;log;del;list2;v;xin∆;jlog;cfg;rcTest;interpreters;interpreter;t;int;resTab;plus;V;B;b;E;xinO;If;lint;dot
+    ∇ {(res Log)}←ExecuteLocalTest arg;fld;fl;loc;xin;rc;specs;R;step;specsObj;lg;cnt;list;showedIO;log;del;list2;v;xin∆;jlog;cfg;rcTest;interpreters;interpreter;t;int;resTab;plus;V;B;b;E;xinO;lint;dot
 ⍝:: Execute local tests
 ⍝?: Execute local tests
 ⍝?:
-⍝?: ]ExecuteLocalTest <path>CITA.json[5] -all [-workdir=<location> [-empty] [-cleanup[=O|N]] | [-cleanup[=N]]] [-int=180U64...]
-⍝Parse:               1L                 -all  -workdir=            -empty   -cleanup[∊]ON -int∊0123456789UC,
+⍝?: ]ExecuteLocalTest <path>CITA.json[5] -all [-workdir[=<location>]] [-empty] [-cleanup[=O|N]] | [-cleanup[=N]]] [-int=180U64...]
+⍝Parse:               1L                 -all  -workdir[=]            -empty   -cleanup[∊]ON -int∊0123456789UC,
 ⍝??: Execute local tests
 ⍝??:
-⍝??: ]ExecuteLocalTest    <path>CITA.json[5] [-workdir=<location> [-empty] [-cleanup[=N|O]] | [-cleanup]] [-int=180U64...]
+⍝??: Adam has point!  1:0
 ⍝??:
 ⍝??: <path>               location of CITA.json or CITA.json5 file
 ⍝??:
@@ -227,7 +229,6 @@
 ⍝??
       res←¯1  ⍝ res=¯1 indicates no test were run!
       Log←''
-      If←{⍵:⍺ ⋄ ⍬}  ⍝ syntax sugar for →
       arg←##._Parse arg  ⍝ ensure its a parsed arg...
       fl←∊1 ⎕NPARTS(1 ''##._getArg 1 arg)  ⍝ fld=folder, fl=path to a CITA.json
       ('File or directory "',fl,'" not found')⎕SIGNAL(~⎕NEXISTS fl)/700
@@ -258,7 +259,9 @@
       resTab←1 1⍴' '  ⍝ tests x Interpreters - a summary table of test-results  - first row/col contains ids/names
       showedIO←0   ⍝ when we display test-counts instead of ids, give info about IO=1 (this var ensures we're doing it once only!)
       rcTest←¯1  ⍝ ¯1: no tests executed
-      :If (~⎕NEXISTS fl)∨'cita.json'≢9↑⎕C∊1↓⎕NPARTS fl ⋄ →0⊣(res Log)←700 'CITA.JSON[5] not found' ⋄ :EndIf
+      :If (~⎕NEXISTS fl)∨'cita.json'≢9↑⎕C∊1↓⎕NPARTS fl
+          →0⊣(res Log)←700 'CITA.JSON[5] not found'
+      :EndIf
       (rc specsObj lg)←_GetTestSpecs fl
       :If rc≠0
           (res Log)←701('Error processing specs in "',fl,'": ',⍕lg)
@@ -311,27 +314,29 @@
             ⍝   :If int=1 ⋄ resTab←resTab⍪⊂'' ⋄ resTab[cnt+1;1]←⊂specs.id ⋄ :EndIf
            ⍝ test if this apl qualifies...
               resTab[cnt+1;int+1]←'~'  ⍝ we assume it doesn't - this will be overridden later if it does
-              :If 0<≢v←specs.dyalogversions
-                  :If interpreter≡0
-                      V←+/1 0.1×2↑2⊃'.'⎕VFI 2⊃'.'⎕WG'aplversion'  ⍝ current version
-                  :Else
-                      V←interpreter.version
-                  :EndIf
-     
-                  plus←0  ⍝ did we see a +sign?
-                  :If (⎕DR' ')=⎕DR v  ⍝ , separated list or a single version, possibly with "+
-                      v←','(≠⊆⊢)v
-                      (v plus dot)←↓⍉↑{(p d)←'+.'∊⍵ ⋄ (⊃2⊃⎕VFI ⍵~'+'),p,d}¨v
-                  :Else
-                      (v plus dot)←↓⍉↑{' '≠⍥⎕DR ⍵:⍵,0 0 ⋄ (p d)←'+.'∊⍵ ⋄ (⊃2⊃⎕VFI ⍵~'+'),p,d}¨v
-                  :EndIf
-                  :If ~∨/(V∊v),(plus∧v<V),(dot∧V∊⍥⌊v)
+              :If 2=specs.⎕NC'dyalogversions'
+                  :If 0<≢v←specs.dyalogversions
                       :If interpreter≡0
-                          Log,←⊂'Current interpreter (v=',(⍕V),') rejected by test which selected "',(⍕specs.dyalogversions),'"'
+                          V←+/1 0.1×2↑2⊃'.'⎕VFI 2⊃'.'⎕WG'aplversion'  ⍝ current version
                       :Else
-                          Log,←⊂'Interpreter ',interpreter.id,'(v=',(⍕V),') rejected by test which selected "',(⍕specs.dyalogversions),'"'
+                          V←interpreter.version
                       :EndIf
-                      →EndForSpec
+     
+                      plus←0  ⍝ did we see a +sign?
+                      :If (⎕DR' ')=⎕DR v  ⍝ , separated list or a single version, possibly with "+
+                          v←','(≠⊆⊢)v
+                          (v plus dot)←↓⍉↑{(p d)←'+.'∊⍵ ⋄ (⊃2⊃⎕VFI ⍵~'+'),p,d}¨v
+                      :Else
+                          (v plus dot)←↓⍉↑{' '≠⍥⎕DR ⍵:⍵,0 0 ⋄ (p d)←'+.'∊⍵ ⋄ (⊃2⊃⎕VFI ⍵~'+'),p,d}¨,v
+                      :EndIf
+                      :If ~∨/(V∊v),(plus∧v<V),(dot∧V∊⍥⌊v)
+                          :If interpreter≡0
+                              Log,←⊂'Current interpreter (v=',(⍕V),') rejected by test which selected "',(⍕specs.dyalogversions),'"'
+                          :Else
+                              Log,←⊂'Interpreter ',interpreter.id,'(v=',(⍕V),') rejected by test which selected "',(⍕specs.dyalogversions),'"'
+                          :EndIf
+                          →EndForSpec
+                      :EndIf
                   :EndIf
               :EndIf
               :If 2=specs.⎕NC'bits'
@@ -370,18 +375,20 @@
               log←''
               :If xin∆≢fld
                   xin←xin∆,(⍕specs.id),'/'
-                  :Trap 0
+                  :Trap (~DEBUG)/0
                       ⎕MKDIR xin
                   :Else
                       xin←xin∆,(⍕cnt),'/'
                       log,←⊂'The jobid "',specs.id,'" caused an error when attempting to create a folder with that name.'
-                      :Trap 0
+                      :Trap (~DEBUG)/0
                           ⎕MKDIR xin
                           log,←⊂'Solved that using counter (',(⍕cnt),') instead.'
                       :Else
                           log,←⊂'** Attempt to use counter (',(⍕cnt),') failed as well! Giving up.' ⋄ →EndStep
                       :EndTrap
                   :EndTrap
+              :Else
+                  xin←xin∆
               :EndIf
      
 ⍝ remember files we had before tests were executed...
@@ -474,7 +481,7 @@
                       del←list2
                   :EndIf
               :EndSelect
-              :Trap 0
+              :Trap (~DEBUG)/0  ⍝ :;trap 0 If ~DEBUG (AB!)
                   1 ⎕NDELETE⌽del   ⍝ we try to delete files and folders individually
               :Else
                   log←⊂'Trapped error while clearing folder "',xin∆,'":',nl,⎕JSON ⎕DMX
@@ -496,7 +503,7 @@
 
 
     :section tools
-    ∇ (R log)←step _RunJob cfg_specs_interpreter;cpu;dws;cmd;ext;proc;StatusFiles;ai3;log;specs;cfg;file;isDTest;Fullname;t;TestLog;log_file;exited;If
+    ∇ (R log)←step _RunJob cfg_specs_interpreter;cpu;dws;cmd;ext;proc;StatusFiles;ai3;log;specs;cfg;file;isDTest;Fullname;t;TestLog;log_file;exited
 ⍝ returncode: 0=ok
 ⍝             1=test failed
 ⍝             2=aborted because of Timeout
@@ -507,7 +514,6 @@
 ⍝ access global var "E" which has the Edition of the target-environment (U|C)
      
       log←''
-      If←{⍵:⍺ ⋄ ⍬}  ⍝ syntax sugar for →
       dws←cmd←''  ⍝ Arguments for constructor of APLProcess
       R←0
       →(0=≢cfg_specs_interpreter)/EOF
@@ -516,7 +522,10 @@
       →(0=≢file)/EOF
       isDTest←0   ⍝ do we have a ]DTest-Call?
      
-      :If ~⎕NEXISTS xin,file ⋄ R←4 ⋄ →EndJob ⋄ :EndIf
+      :If ~⎕NEXISTS xin,file
+          R←4
+          →EndJob
+      :EndIf
      
     ⍝ step of Statusfiles to indicate failure [1] or success[2]
       StatusFiles←(⊂xin,'CITA.',⎕C step),¨'.err' '.ok'
@@ -532,14 +541,14 @@
       :CaseList '.aplf' '.aplc' '.dyalog'
           TestLog←xin,'CITA_',(2⊃⎕NPARTS(-(ext≡''))↓Fullname),'.log'
           cmd←'CITATest="',Fullname,'" testlog="',TestLog,'"'
-          dws←∊1 ⎕NPARTS ⎕se.CITA.Home,'/client(testdriver)/RunCITA'
+          dws←∊1 ⎕NPARTS ##.Home,'/client(testdriver)/RunCITA'
       :Case '.dws' ⋄ dws←Fullname
       :CaseList '' '.dyalogtest'
           R←4('.dyalogtest or folder-argument only valid for "test", not "',step,'"') ⋄ →(step≢'test')/EndJob
           :If ext≡'' ⋄ :AndIf 1≠1 ⎕NINFO Fullname ⋄ R←4 ⋄ →EndJob ⋄ :EndIf  ⍝ no extension, but does not refer to a folder
           TestLog←xin,'CITA_',(2⊃⎕NPARTS(-(ext≡''))↓Fullname),'.log'
           cmd←'CITATest="',Fullname,'"  testlog="',TestLog,'" ',specs{6::'' ⋄ 'dtestmods="',(⍺⍎⍵),'"'}'dtestmodifiers'
-          dws←'"',∊1 ⎕NPARTS ⎕se.CITA.Home,'/client(testdriver)/RunCITA"'
+          dws←'"',∊1 ⎕NPARTS ##.Home,'/client(testdriver)/RunCITA"'
           isDTest←1
       :Else
           R←4('Did not recognize type of file "',file,'"') ⋄ →EndJob
@@ -583,7 +592,7 @@
     ∇
 
     ∇ (rc rspec log)←_GetTestSpecs fl;cnt;specs;spec
-      :Trap rc←0
+      :Trap (~DEBUG)/rc←0
           log←''
           cnt←0
           rspec←⍬
@@ -625,7 +634,7 @@
           :If 0<≢hf ⋄ :AndIf 1∊hf{⍺≡(≢⍺)↑⍵}¨⊂n ⋄ :Continue ⋄ :EndIf ⍝ file from a hidden folder
           :If 1=t  ⍝ directory
               :If from≡(≢from)↑n
-                  :Trap 0
+                  :Trap (~DEBUG)/0
                       3 ⎕MKDIR to,(≢from)↓n ⋄ :Continue
                   :Else
                       →0⊣R←2
@@ -673,12 +682,13 @@
 
 
     ∇ _InitUCMDs;fn;_quote;_findLine;nr;j;parse;maxH;h;hd;r
-      ⎕SE.CITA.UCMD._List←'[',⎕UCS 13
-      ⎕SE.CITA.UCMD._Help←0 3⍴''
+      ##.Home←##._getHomeDir
+      ##.UCMD._List←'[',nl
+      ##.UCMD._Help←0 3⍴''
       _quote←{'"',⍵,'"'}
       _findLine←{{(+/∧\⍵=' ')↓⍵}¨l↓¨(((l←2+≢⍵)↑¨⍺)≡¨⊂'⍝',⍵,':')/⍺}
-      :For fn :In {('_'≠1⊃¨⍵)/⍵}⎕SE.CITA.API.⎕NL-3  ⍝ only for fns NOT starting with '_'
-          nr←⎕SE.CITA.API.⎕NR fn
+      :For fn :In {('_'≠1⊃¨⍵)/⍵}##.API.⎕NL-3  ⍝ only for fns NOT starting with '_'
+          nr←##.API.⎕NR fn
           j←'{'
           j,←'"Name":',_quote fn
           j,←',"Desc":',_quote∊nr _findLine':'
@@ -689,12 +699,12 @@
           j,←',"Parse":',_quote parse
           j,←',"Group":"CITA"'
           j,←'}'
-          ⎕SE.CITA.UCMD._List,←j,','
-          maxH←⌈/0,∊('⍝(\?*):'⎕S{¯1↑⍵.Lengths})nr
+          ##.UCMD._List,←j,','
+          maxH←⌈/0,∊('⍝\s*(\?+):'⎕S{¯1↑⍵.Lengths})nr
           :For h :In ⍳maxH
-              ⎕SE.CITA.UCMD._Help⍪←(⊂fn),(h-1),[1.5]nr _findLine h⍴'?'
+              ##.UCMD._Help⍪←(⊂fn),(h-1),[1.5]nr _findLine h⍴'?'
           :EndFor
-          :Select 2⊃1⊃AT←⎕SE.CITA.API.⎕AT fn
+          :Select 1 2⊃AT←##.API.⎕AT fn
           :Case 0 ⍝ niladic or not a fn
               hd←fn
           :Case 1 ⍝ monadic
@@ -702,17 +712,24 @@
           :CaseList ¯2 2
               hd←'larg ',fn,' rarg'
           :EndSelect
-          :Select 1⊃1⊃⎕SE.CITA.API.⎕AT fn
-          :Case 1 ⋄ hd←'R←',hd
-          :Case ¯1 ⋄ hd←'{R}←',hd
+          :Select 1⊃1⊃##.API.⎕AT fn
+          :Case 1
+              hd←'R←',hd
+          :Case ¯1
+              hd←'{R}←',hd
           :EndSelect
           r←'←'∊hd
           hd←(⊂hd),⊂':if 2=⎕nc''larg''⋄',(r/'R←'),'larg _getAPI ''',fn,''' rarg'
           hd,←⊂':else⋄',(r/'R←'),'_getAPI ''',fn,''' rarg'
           hd,←⊂':endif'
-          {}⎕SE.CITA.⎕FX hd
+          :Trap 0 If DEBUG
+              2 ##.⎕FIX hd
+          :Else
+          ⍝ return error building API fns...
+              ∘∘∘
+          :EndTrap
       :EndFor
-      ⎕SE.CITA.UCMD._List←(¯1↓⎕SE.CITA.UCMD._List),']'
+      ##.UCMD.(⊃⌽_List)←']'
     ∇
 
 

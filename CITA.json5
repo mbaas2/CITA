@@ -1,3 +1,6 @@
-{"Tests": "Tests/CITA.dyalogtest",
-"DyalogVersions": 18.0  // is sufficient because the test itself ensure that it is executed in all interpreters - which seems reasonable to test a testing-tool.
+{
+    "Tests": {
+        "Test": "Tests/CITA.dyalogtest",
+        "DyalogVersions": "18+" // the test itself (and the CITA-Client (UCMD) are executed against ALL enabled interpreters)
+    }
 }
