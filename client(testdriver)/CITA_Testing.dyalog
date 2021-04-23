@@ -43,6 +43,7 @@
     ⍝ we're intentionally not passing ⍵[2]as 1 to force overwrite - because this is supposed to be called once only!
     ⍝ So if it crashes...that is well deserved...
       msg qNPUT file,'.',status
+      ⎕off
     ∇
 
 ⍝ Define Success'blablabla' and Failure'blabla' as shortcuts to 'blabla'_LogStatus 1|0

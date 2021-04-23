@@ -2,7 +2,7 @@ R←_getHomeDir
 
  :If ''≡R←⎕SE.Dyalog.Utils.Config'DYALOGCITASRCDIR'
  :AndIf ''≡R←{0::'' ⋄ ⍎'⎕SRCDIR'}⍬
-     ⎕SIGNAL⊂('EN' 11)('Message' (⎕←'Must set environment- or config variable "DYALOGCITASRCDIR" or implement m19010'))
+     'DOMAIN ERROR: must set environment or config variable "DYALOGCITASRCDIR" or implement m19010'⎕SIGNAL 11
  :EndIf
 
 R,←(~∨/'/\'=⊃⌽R)/⎕se.SALT.FS  ⍝ if R does not end with a folder-separator, add one

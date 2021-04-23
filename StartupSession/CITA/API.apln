@@ -4,7 +4,7 @@
     ⎕io←1
     Timeout←180 ⍝ seconds before we consider a job to have timedout
     DEBUG←1
-      If←/⍨   ⍝  AB's father
+    If←/⍨   ⍝  AB's father
 
     ∇ (R log)←APLVersions args;k;i;keys;int;exe;bak;cnt;file;json;old;doc;platform;fld;cJSON;z1;z2;t;old∆;k2;lglv
 ⍝:: Reports the current list of local interpreters (or updates it with the right modifieres set)
@@ -210,13 +210,10 @@
 ⍝Parse:               1L                 -all  -workdir[=]            -empty   -cleanup[∊]ON -int∊0123456789UC,
 ⍝??: Execute local tests
 ⍝??:
-⍝??: Adam has point!  1:0
-⍝??:
 ⍝??: <path>               location of CITA.json or CITA.json5 file
 ⍝??:
 ⍝??: -all                 tests against ALL local versions of dyalog (as defined in %CITA_ListOfInterpreters%) - otherwise tests currently active interpreter
 ⍝??: -int=ids             test against a subset of specified interpreters (commad-separated list ids according to ]APLVersions)
-⍝??: -workdir=<location>  directory in which the tests should be executed (all files/folders found in <path> will be copied to <location>)
 ⍝??:
 ⍝??: -empty               delete all files from <location> before running tests
 ⍝??:
@@ -534,6 +531,10 @@
       ⍝...and explicitely set a log_file for each step (to be stored in workdir-folder):
       cfg,←' LOG_FILE="',(log_file←xin,'log_',step,'.dlf'),'" CITA_Log="',(∊2↑⎕NPARTS 1⊃StatusFiles),'"'
       cfg,←' APLCORENAME="',xin,'APLCORE_',step,'."'
+      :If ⎕SE.SALTUtils.WIN   ⍝ if we're tunning under Windows
+      ⍝ add those flags to better deal with possible exceptions...
+          cfg,←'DYALOG_NOPOPUPS=1 PassExceptionsToOpSys=1'
+      :EndIf
      
       cpu←⎕AI[3]
       Fullname←∊1 ⎕NPARTS xin,file

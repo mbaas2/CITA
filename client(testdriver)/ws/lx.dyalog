@@ -5,9 +5,9 @@
  HandleError←{
      s←'Loaded File "',⍺,'". Executing "',⍵,'" led to a trapped error: '
      s,←∊⎕DM,¨⎕TC[3]
-     s,←{0::{∊⎕DMX.({0::'' ⋄ ⍵,':',(⍎⍵),⎕TC[3]}¨⎕NL ¯2)}'' ⋄ ∊⎕JSON ⎕DMX}''   ⍝ various fallsbacks so that this code can execute even on v12 (where it does not do anything - but also does not fail)
-
-     s ⎕SE._cita.LogStatus 0
+     dmx←{0::'' ⋄ ⎕DMX}0  ⍝ can't use ⎕DMX. in next line because this code is saved with v12 that does not know ⎕DMX
+     s,←{0::{0::''  ⋄ 'DMX=',∊dmx.({0::'' ⋄ ⍵,':',(⍎⍵),⎕TC[3]}¨⎕NL ¯2)}'' ⋄ 'DMX=',∊⎕JSON dmx}''   ⍝ various fallsbacks so that this code can execute even on v12 (where it does not do anything - but also does not fail)
+     ⎕SE._cita.Failure s
  }
 
 ⍝ set up ⎕SE._cita
@@ -22,8 +22,11 @@
  :CaseList '' '.dyalogtest',('DTest'≡Env'mode')/⊂ext
      ⎕SE.UCMD ⎕←'DTest "',subj,'" -testlog="',(Env'testlog'),'" ',(Env'dtestmods ')
      →End
- :CaseList '.aplc' '.apln'
+ :CaseList '.aplc' '.apln' '.dyalog'
      r←⎕SE.SALT.Load subj   ⍝ load it
+     :if 3= ⎕nc ⍕r 
+     →runFn 
+     :endif
      :If 3=⎕NC r,'.Run'
          :Trap 0
              :If 1=|1 1⊃(⎕AT r,'.Run')
@@ -36,11 +39,12 @@
          :EndTrap
      :Else
          s←'File "',subj,'" did not define "Run" function in ns/class'
-         s ⎕SE._cita.LogStatus 0
+         ⎕SE._cita.Failure s
      :EndIf
      →End
- :CaseList '.dyalog' '.aplf'
+ :Case '.aplf'
      r←⎕SE.SALT.Load subj   ⍝ load it
+     runFn:
      :If 3=⎕NC r
          :Select 1 2⊃(⎕AT r)
          :Case 0 ⋄ cmd←r
@@ -58,7 +62,7 @@
          :EndTrap
      :Else
          s←'Loading File "',subj,'" did not give us a function. Result was: "',r,'"'
-         s ⎕SE._cita.LogStatus 0
+         ⎕SE._cita.Failure s
      :EndIf
      →End
  :Else
@@ -69,4 +73,4 @@
 
 
 End:
- ⎕OFF
+ ⎕se._cita.Success''
