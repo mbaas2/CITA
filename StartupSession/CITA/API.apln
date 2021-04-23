@@ -802,7 +802,8 @@
               :If ∨/'_uc'∊⎕C⊃cmd
                   :If (⎕C⊃cmd)∊'cu'
                       z←'z'{6::⍵ ⋄ ⍵∧⍎⍺}l3[;4]=⎕C⊃cmd
-                      z←'z'{6::⍵ ⋄ ⍵^⍎⍺}(≢l3)⍴1  ⍝ select all
+                  :Else
+                      z←'z'{6::⍵ ⋄ ⍵∧⍎⍺}(≢l3)⍴1  ⍝ select all
                   :EndIf
                   cmd←1↓cmd
               :EndIf
@@ -820,6 +821,7 @@
           :EndIf
       :EndFor
       :If 2=⎕NC'opt'
+          z←objs.id∊new
           :Select ⎕C opt
           :Case 'x'
               new←z/objs.exe
