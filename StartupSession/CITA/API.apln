@@ -733,7 +733,104 @@
       ##.UCMD.(⊃⌽_List)←']'
     ∇
 
-
+    ∇ new←{opt}_FilterVersions dsl;inst;l3;cmd;disable;z;range;objs
+⍝ Process ","-separated filters in dsl to build list of selected interpreters
+⍝ This implements a DSL for selection of Dyalog interpreters:
+⍝ [mode][[version[s]]|/][edition][bits]
+⍝ if version(s) is elided, a / must be given to indicate missing first element. (This allows us to recognize "/32" as a bitness-selector)
+⍝ mode is optional, default is + (select). Alternative values: ~ (=un-select, disable)
+⍝ [version] is any number, optionally with decimals and selects a version-number. Using syntax from-to you may also specify a range of versions.
+⍝ [edition]∊uUcC or _: Unicode, Class or "_" for both
+⍝ [bits] is 32 or 64 or can be elided to select both
+⍝ each of the three elements can be elided, but at least one must be given for a sensible selection obviously...
+⍝
+⍝ optional left arg can be used to control result:
+⍝ x - return vtv with path(s) to exe
+⍝ i =    -II-         id(s)
+⍝ o =    -II-         objects (containing fields as exe, id etc. - from the file ]APLVersions uses )
+⍝ Selections will be applied in the sequence they appear. Each operation adds to new - starting with an empty list obviously.
+          objs←⎕JSON 1⊃⎕NGET _FileWithListOfInterpreters
+          objs←(objs.id≢¨⊂'doc')/objs
+          list←objs.id
+      l3←('(\d\d[\.?\d]?)([ |c|u])(\d{2})'⎕S'\1 \2 \3'⍠1)list
+      ⍝ convert list into [;1]=id, [;2]=version, [;3]=bits, [;4]=edition
+      l3←list,↑{({⍬⍴(2⊃⎕VFI 2↑⍵)+(2<≢⍵)×0.1×2⊃⎕VFI ¯1↑⍵}¨⍵[1 3]),⎕C 2⊃⍵}¨{' '(≠⊆⊢)⍵}¨l3
+      new←⍬   ⍝ start with an empty list
+      :For cmd :In ','(≠⊆⊢),dsl   ⍝ look at one instruction after the next
+          disable←'~'=⊃cmd ⋄ cmd←(∨/'+~'=⊃cmd)↓cmd
+          :If cmd≡⍥⎕C'all'
+              z←(≢l3)⍴~disable
+          :Else
+              :If '/'≠⊃cmd
+                  range←0 ¯1 99 0 0 ⍝ range[1]: yes, "-" was used, [2] is start and [3] is end of range, range [4 5]: was a '.' used in the version-spec 2&3
+                  :If ∧/(2↑cmd)∊⎕D
+                      z←∧\((≢cmd)↑1 1)∧cmd∊⎕D,'.'  ⍝ just get the leading digits
+                      range[2]←⍬⍴2⊃⎕VFI z/cmd
+                      cmd←(~z)/cmd
+                      :If 0<≢cmd
+                      :AndIf range[4]←∨/z←∧\cmd∊'.',⎕D
+                          range[2]+←{⍵<1:⍵ ⋄ ⍵×0.1}⍬⍴2⊃⎕VFI(('.'≠⊃cmd)⍴'.'),z/cmd
+                          cmd←(~z)/cmd
+                      :EndIf
+                  :EndIf
+                  range[1]←'-'=⊃cmd
+                  cmd←range[1]↓cmd
+                  :If 0<≢cmd
+                  :AndIf ∨/z←∧\((≢cmd)↑1 1)∧cmd∊⎕D,'.'  ⍝ just get the leading digits
+                      range[3]←⍬⍴(2⊃⎕VFI z/cmd)+⍬⍴0.1×{2⊃⎕VFI'.'~⍨(∧\⍵∊⎕D,'.')/⍵}'0',⍨(~z)/cmd
+                      cmd←(~z)/cmd
+                      :If 0<≢cmd
+                      :AndIf range[5]←∨/z←∧\cmd∊'.',⎕D
+                          range[3]+←{⍵<1:⍵ ⋄ ⍵×0.1}2⊃⎕VFI z/cmd
+                          cmd←(~z)/cmd
+                      :EndIf
+                  :EndIf
+                  range[2]←{⍵[2]:⍵[1] ⋄ ⌊⍵[1]}range[2 4]
+                  range[3]←{⍵[2]:⍵[1] ⋄ 0.999+⌊⍵[1]}range[3 5]
+                  :If range[1]  ⍝ if range was specified
+                      z←l3[;2]{(⍵[1]≤⍺)∧(⍵[2]≥⍺)∨⍵[2]=¯1}1↓range
+                  :ElseIf range[4] ⍝ if . was used in 2
+                      z←(l3[;2])=range[2]  ⍝ version must match exactly
+                  :ElseIf range[2]>0
+                      z←(⌊l3[;2])=range[2]
+                  :Else
+                      ⎕EX'z'
+                  :EndIf
+              :Else
+                  cmd←1↓cmd
+              :EndIf
+              :If ∨/'_uc'∊⎕C⊃cmd
+                  :If (⎕C⊃cmd)∊'cu'
+                      z←'z'{6::⍵ ⋄ ⍵∧⍎⍺}l3[;4]=⎕C⊃cmd
+                      z←'z'{6::⍵ ⋄ ⍵^⍎⍺}(≢l3)⍴1  ⍝ select all
+                  :EndIf
+                  cmd←1↓cmd
+              :EndIf
+              :If (⊂cmd)∊'32' '64'
+                  z←'z'{6::⍵ ⋄ ⍵∧⍎⍺}l3[;3]∊2⊃⎕VFI cmd
+              :EndIf
+          :EndIf
+          :If 0=⎕NC'z'
+              :Continue
+          :EndIf ⍝ nothing has been selected
+          :If disable
+              new←new~z/l3[;1]
+          :Else
+              new,←z/l3[;1]
+          :EndIf
+      :EndFor
+      :If 2=⎕NC'opt'
+          :Select ⎕C opt
+          :Case 'x'
+              new←z/objs.exe
+          :Case 'i'
+              new←z/objs.id
+          :Case 'o'
+              new←z/objs
+          :EndSelect
+      :EndIf
+     
+    ∇
     :endsection
 
 
