@@ -3,14 +3,14 @@
 ⍝ Cita.dyalog in SALT/Spice is the immutable cover that SALT needs to recognize the UCMDSs.
 ⍝ In order to handle Run/List/Help, those fns falls the fns in this ns which
 ⍝ uses the API-Fn "_InitUCMDs" to setup the variables _List/_Help which are then
- ⍝ used to create the info for SALT etc.
+⍝ used to create the info for SALT etc.
 
     ⎕ML←⎕io←1
 
     ∇ {r}←Run(cmd args);res;⎕ML;l;rc;log
-      :If 3=⎕NC'##.API.',cmd        ⍝ if function exists in ⎕SE.CITA...
+      :If 3=⎕NC'##.API.',cmd               ⍝ if function exists in ⎕SE.CITA...
           args.SwD⍪←'ucmd' 1 ⋄ args.ucmd←1  ⍝ indicate to the fn that it is called via UCMD
-          (rc log)←⍎'##.API.',cmd,' args' ⍝ execute it...
+          (rc log)←⍎'##.API.',cmd,' args'  ⍝ execute it...
           :If rc≡⍬
               r←⍬   ⍝ optionally API-fns may return rc as ⍬ which is an indicator to ommit the header (for "simple" this like reports in ]APLVersion)
           :Else
@@ -23,7 +23,7 @@
           ⎕←↑⎕DMX
           r←''
       :EndIf
-    ∇ 
+    ∇
 
     ∇ r←List;findLine;nr;fn;ns;hd;maxH
       :If ⎕SE.SALTUtils.V18
@@ -31,13 +31,17 @@
       :Else
           r←''
       :EndIf
-    
+     
     ∇
 
-    ∇ r←level Help cmd
-      r←##.UCMD._Help{(⍺[;⍳2]∧.≡⍵)⌿⍺[;3]}cmd level
-      :If ∨/##.UCMD._Help[;⍳2]∧.≡cmd(level+1)
-          r,←(⊂''),(⊂']',(1⊃(⎕json ##.UCMD._List).Group),'.',cmd,' -',((level+2)⍴'?'),'    ⍝ for more details')
+    ∇ r←level Help cmd;col
+    ⍝ This is the only function within this set that could also be called in a non-UCMD contesxt
+    ⍝ (when a developer uses the session to call an API-Fn asking for help - with a "-?" argument!)
+      col←3  ⍝ which col of the Help-Table do we need?  (3=UCMD, 4=API)
+      col←col+'_Parse'≡2⊃⎕SI   ⍝ if we're called from _Parse, we need to return the help for the API
+      r←##.UCMD._Help{(⍺[;⍳2]∧.≡⍵)⌿⍺[;col]}cmd level
+      :If ∨/(∊0<≢¨##.UCMD._Help[;col])/##.UCMD._Help[;⍳2]∧.≡cmd(level+1)
+          r,←(⊂''),(⊂']',(1⊃(⎕JSON ##.UCMD._List).Group),'.',cmd,' -',((level+2)⍴'?'),'    ⍝ for more details')
       :EndIf
     ∇
 :endnamespace

@@ -6,58 +6,83 @@
     DEBUG←1
     If←/⍨   ⍝  AB's father
 
-    ∇ (R log)←APLVersions args;k;i;keys;int;exe;bak;cnt;file;json;old;doc;platform;fld;cJSON;z1;z2;t;old∆;k2;lglv
+    ∇ (R log)←APLVersions arg;k;i;keys;int;exe;bak;cnt;file;json;old;doc;platform;fld;cJSON;z1;z2;t;old∆;k2;lglv;hlp;args;res
 ⍝:: Reports the current list of local interpreters (or updates it with the right modifieres set)
-⍝?: Reports the current list of local interpreters (or updates it with the right modifieres set)
 ⍝?:
-⍝?: ]APLVersions   [-update] [-enable[=id[,id]] [-disable[=id[,id]]
-⍝??: Without modifiers, prints a list of local interpreters (according to interpreters.json5)
-⍝??: -update              rebuild list
-⍝??: -enable              enable all interpreters
-⍝??: -enable=ids          enable list of interpreters given in ids
-⍝??: -disable             disable all interpreters
-⍝??: -disable=ids         disable list of interpreters given in ids
-⍝??:
-⍝?? interpreters.json is located in different folders, depending on the OS. Running the command will show the location of the file.
-⍝ParseU: 0 -update -enable[∊]0123456789UC, -disable[∊]0123456789UC,
-⍝ParseA: 0 -update -ucmd=0 -loglevel∊0123 -compact
-⍝ This describes the syntax for calls through the API-Interface.
-⍝ loglevel provides a possibility to select the desired level of detail for the messages in the log.
-⍝ the level of detail increases as numbers increase in value:
-⍝ 0 - no logging at all
-⍝ 1 - simple msg about the name of the file that was created or updated
-⍝ 2 - report new or disabled interpreters
-⍝ 3 - everything
-⍝
-⍝ Additionally, the API-Call can use the option "-compact" to generate two-row report of enabled & disabled APL-Interpreters
+⍝?: ]APLVersions
+⍝?: Without arguments, prints a list of local interpreters (according to interpreters.json5)
+⍝?: * ]APLVersions -update:   rebuild list
+⍝?: * ]APLVersions <filter>: use the "version filtering DSL" to enable or disable selected interpreters.
+⍝?:                          as this has a "global effect", it should be used with care only tp disable interpreters
+⍝?:                          that you are sure you don't want to use with CITA.
+⍝?:  interpreters.json is located in different folders, depending on the OS. Running the command will show the location of the file.
+⍝??: APLVersions: The <version filtering DSL>
+⍝??: [mode][[version[s]]|/][edition][bits]
+⍝??: [mode] is optional, default is + (select). Alternative values: ~ (=un-select, disable)
+⍝??: [version] is any number, optionally with decimals and selects a version-number. Using syntax from-to you may also specify a range of versions
+⍝??:           if version(s) is elided, a / must be given to indicate missing first element. (This allows us to recognize "/32" as a bitness-selector)
+⍝??: [edition] ∊uUcC or _: Unicode, Class or "_" for both
+⍝??: [bits]    is 32 or 64 or can be elided to select both
+⍝??: each of the three elements can be elided, but at least one must be given for a sensible selection obviously...
+⍝UParse: 1S -update
+⍝AParse: 1S -update -ucmd=0 -loglevel∊0123 -compact= 1 2
+⍝A?: This describes the syntax for calls through the API-Interface.
+⍝A?: loglevel provides a possibility to select the desired level of detail for the messages in the log.
+⍝A?: the level of detail increases as numbers increase in value:
+⍝A?: 0 - no logging at all
+⍝A?: 1 - simple msg about the name of the file that was created or updated
+⍝A?: 2 - report new or disabled interpreters
+⍝A?: 3 - everything
+⍝A?:
+⍝A?: Additionally, the API-Call can use the option "-compact" to select result:
+⍝A?: -compact=1: generate two-row report of enabled & disabled APL-Interpreters
+⍝A?: -compact=2: two-element vector with ids of enabled & disabled interpreters
      
-      args←##._Parse args  ⍝ ensure its a parsed arg...
+⍝ the "standard"-header for the API-Functions takes care of providing help when the fn is called directly
+      :If ''=⍥⎕DR arg                              ⍝ if arg is char,
+          arg←arg{~∨/⍵⍷⎕C ⍺:⍺,' ',⍵ ⋄ ⍺}'-ucmd=0'  ⍝ this is an API-Call - so be sure to add the -ucmd=0-modifier if we don't see it
+          hlp←∨/('-?'⍷⍕arg)                        ⍝ remember if user asked for help
+          args←##._Parse arg
+          :If hlp                                   ⍝ if he asked for help
+              R←0                                   ⍝ yes, this was successful!
+              log←args                              ⍝ return it (Parse will have put it into its result!)
+              →0                                    ⍝ and exit
+          :EndIf
+      :Else
+          args←arg
+      :EndIf
+     
       int←⍬
       cJSON←⎕JSON⍠'Compact' 0
       log←''
       :If ⎕NEXISTS file←_FileWithListOfInterpreters
           log←⊂'Using list of interpreters from file "',file,'"'
           old∆←⎕JSON ⎕JSON old←(⎕JSON⍠'Dialect' 'JSON5')1⊃⎕NGET file
-          :If 0≡args.Switch'update'
+          :If 0=0 args.Switch'update'
+              res←FilterAPLVersions(⊃args.Arguments),' -get=V'
+     
               Disable←{⍝ ⍺=interpreters,  ⍵[1] ids to handle, ⍵[2]=new value
-                  i←⍸⍺.id∊int←','(≠⊆⊢)1⊃⍵
-                  ⍺[i].disabled←⍵[2]
+                  i←⍸⍺.id∊int←1⊃⍵
+                  ⍺{16::NOP←⍬ ⋄ ⍺[i].disabled←⍵[2]}⍵  ⍝ avoid NONCE ERROR if i=⍳0
                   z←~int∊⍺.id
                   1=∨/z:⎕←'Version(s) ',(¯2↓∊'"',¨int,¨⊂'", '),' not found!'
               }
-              :If 0≢t←args.Switch'disable'
-                  :If t≡1 ⋄ t←¯1↓∊old.id,¨',' ⋄ :EndIf
+              :If 0≢t←2⊃res
                   old Disable t(∊'"Disabled with ""]APLVersions -disable"" on "Dddd, DDoo Mmmm YYYY; hh:mm:ss'(1200⌶)1 ⎕DT⊂⎕TS)
               :EndIf
-              :If 0≢t←args.Switch'enable'
-                  :If t≡1 ⋄ t←¯1↓∊old.id,¨',' ⋄ :EndIf
+              :If 0≢t←1⊃res
                   old Disable t''
               :EndIf
               k←↑7↑¨({6::0 ⋄ 'doc'≢⍵.id:0=≢⍵.disabled ⋄ 0}¨old)/old.id
               k2←↑7↑¨({6::1 ⋄ 'doc'≢⍵.id:0<≢⍵.disabled ⋄ 0}¨old)/old.id
-              :If 1≡args.Switch'compact'
+              :If 1=args.Switch'compact'
                   log,←⊂'enabled : ',¯2↓,(k,','),' '
                   log,←⊂'disabled: ',¯2↓,(k2,','),' '
+                  →End If 1=args.Switch'find'
+              :ElseIf 2=args.Switch'compact'
+                 ⍝ compact=2: return two vectors of vtvs with enabled/disabled interpreters
+                  log←k k2
+                  →End If 1=args.Switch'find'
               :Else
                   log,←⊂'enabled   disabled'
                   log,←⊂'-------   --------'
@@ -66,7 +91,7 @@
               R←⍬
               :If old≢old∆
                   (⊂cJSON old)⎕NPUT file 1
-                  ⍝     log,←⊂'Updated file "',file,'"'
+                    ⍝log,←⊂'Updated file "',file,'"'
               :EndIf
               →End
           :EndIf
@@ -206,24 +231,22 @@
 ⍝:: Execute local tests
 ⍝?: Execute local tests
 ⍝?:
-⍝?: ]ExecuteLocalTest <path>CITA.json[5] -all [-workdir[=<location>]] [-empty] [-cleanup[=O|N]] | [-cleanup[=N]]] [-int=180U64...]
-⍝Parse:               1L                 -all  -workdir[=]            -empty   -cleanup[∊]ON -int∊0123456789UC,
+⍝?: ]ExecuteLocalTest <path>CITA.json[5] [-cleanup[=O|N]] | [-cleanup[=N]]] [-int=180U64...]
+⍝Parse:               1L                 -cleanup[∊]ON -int∊0123456789UC,
 ⍝??: Execute local tests
 ⍝??:
 ⍝??: <path>               location of CITA.json or CITA.json5 file
+⍝??: <folder>             tests are executed in an automaticylly created subfolder of TEMP/CITA_Test/yymmdd_hhmmss
 ⍝??:
-⍝??: -all                 tests against ALL local versions of dyalog (as defined in %CITA_ListOfInterpreters%) - otherwise tests currently active interpreter
-⍝??: -int=ids             test against a subset of specified interpreters (commad-separated list ids according to ]APLVersions)
-⍝??:
-⍝??: -empty               delete all files from <location> before running tests
+⍝??: -int=ids             test against a subset of specified interpreters (comma-separated list of filters using the "version filtering DSL" of ]APLVersions)
 ⍝??:
 ⍝??: -cleanup             files to delete after running tests:
 ⍝??: -cleanup=O           delete only Old files copied from <path> (keeps files resulting from tests)
 ⍝??: -cleanup=N           delete only New files created while running the tests (keeps files copied from <path>)
-⍝??: -cleanup=ON          delete all files in <location> after running tests
+⍝??: -cleanup=ON          delete all files in <folder> after running tests
 ⍝??:
 ⍝??: Hint: the result's header gives a first quick indication of the result: straight line indicates success. dashed line means failure!
-⍝??
+⍝??: ]APLVersions -??   ⍝ for a description of the "version filtering DSL"
       res←¯1  ⍝ res=¯1 indicates no test were run!
       Log←''
       arg←##._Parse arg  ⍝ ensure its a parsed arg...
@@ -232,14 +255,9 @@
       fl,←(1=∊1 ⎕NINFO fl)/('\/'∊⍨⊢/fl)↓'/CITA.JSON'  ⍝ we also accept folders as arg and append the filespec automatically (since we're expecting one specific file anyway)
      
       fld←1⊃⎕NPARTS fl
-      xinO←0(1⊃⎕NPARTS fl)##._getArg'workdir'arg
-      xinO←∊1 ⎕NPARTS xinO
-      xinO,←('/'≠⊢/xinO)/'/'
-      :If ~⎕NEXISTS xinO
-          (res Log)←702 'workdir does not exist'
-          →0
-      :EndIf
-     
+⍝      xinO←0(1⊃⎕NPARTS fl)##._getArg'workdir'arg
+      xinO←(739⌶0),,'</CITA_Test/>,ZI4,ZI2,ZI2,<_>,ZI2,ZI2,ZI2,</>'⎕FMT 1 6⍴⎕TS
+      3 ⎕MKDIR xinO
       :If xinO≢fld
           :If 0<≢list←⊃0(⎕NINFO⍠('Recurse' 1)('Wildcard' 1))xinO,'*'
               :If ~arg.Switch'empty'
@@ -419,7 +437,7 @@
                       :EndIf
                       :Select rc
                       :CaseList 0,(((⊂step)∊'setup' 'teardown')/4),(((⊂step)∊'test' 'teardown')/1) ⍝ we do nothing here, but may need to catch these cases...(and continue to the next step)
-                      :Case 1
+                      :Case 1   ⍝ ...whereas we will :Leave in all other cases...
                           R←rc(step,' (using "',fl,'") failed')
                           :Leave
                       :Case 2
@@ -682,29 +700,47 @@
     :section UCMDs
 
 
-    ∇ _InitUCMDs;fn;_quote;_findLine;nr;j;parse;maxH;h;hd;r
+    ∇ _InitUCMDs;fn;_quote;_findLine;nr;j;parse;maxH;h;hd;r;patt;mode
       ##.Home←##._getHomeDir
       ##.UCMD._List←'[',nl
-      ##.UCMD._Help←0 3⍴''
+      ##.UCMD._Help←0 4⍴''   ⍝ [;1]=fn, [;2]=level, [;3]= regular hlp, [;4]=API-Help
       _quote←{'"',⍵,'"'}
       _findLine←{{(+/∧\⍵=' ')↓⍵}¨l↓¨(((l←2+≢⍵)↑¨⍺)≡¨⊂'⍝',⍵,':')/⍺}
       :For fn :In {('_'≠1⊃¨⍵)/⍵}##.API.⎕NL-3  ⍝ only for fns NOT starting with '_'
           nr←##.API.⎕NR fn
           j←'{'
           j,←'"Name":',_quote fn
-          j,←',"Desc":',_quote∊nr _findLine':'
+          j,←',"Desc":',_quote desc←∊nr _findLine':'
              ⍝ Parse: we also support parseU/parseA to allow for different syntax when API-Fn is used via UCMD or API-Calls.
           :If 0=≢parse←∊nr _findLine'Parse'
-              parse←∊nr _findLine'ParseU'
+              parse←∊nr _findLine'UParse'
           :EndIf
+     
+          ⍝ must scan help here (before we may branch out of processing the cmd) to be sure that we get the help!
+          :For mode :In 'UA'   ⍝ UCMD-Help and API-Help
+              patt←'⍝\s*'
+              :If mode='A'
+                  patt←patt,'A'    ⍝ the A is mandatory for API-Help
+              :Else
+                  patt,←'U?'       ⍝ but the U is optional
+              :EndIf
+              patt,←'(\?+):'
+              maxH←⌈/0,∊(patt ⎕S{¯1↑⍵.Lengths})nr
+              :For h :In ⍳maxH
+                  ##.UCMD._Help⍪←(⊂fn),((h-1)+0.1×mode='A'),(mode≠'A')⌽(⊂''),[1.5]nr _findLine((mode='A')/'A'),h⍴'?'    ⍝ Help for APIs has level +.1! ;)
+              :EndFor
+          :EndFor
+          :If 0∊(≢parse),≢desc  ⍝ if either description or parsing rules are undefined, ignore this fn!
+              :Continue
+          :EndIf
+     
           j,←',"Parse":',_quote parse
           j,←',"Group":"CITA"'
           j,←'}'
           ##.UCMD._List,←j,','
-          maxH←⌈/0,∊('⍝\s*(\?+):'⎕S{¯1↑⍵.Lengths})nr
-          :For h :In ⍳maxH
-              ##.UCMD._Help⍪←(⊂fn),(h-1),[1.5]nr _findLine h⍴'?'
-          :EndFor
+     
+     
+     
           :Select 1 2⊃AT←##.API.⎕AT fn
           :Case 0 ⍝ niladic or not a fn
               hd←fn
@@ -733,29 +769,53 @@
       ##.UCMD.(⊃⌽_List)←']'
     ∇
 
-    ∇ new←{opt}_FilterVersions dsl;inst;l3;cmd;disable;z;range;objs;list
-⍝ Process ","-separated filters in dsl to build list of selected interpreters
-⍝ This implements a DSL for selection of Dyalog interpreters:
-⍝ [mode][[version[s]]|/][edition][bits]
-⍝ if version(s) is elided, a / must be given to indicate missing first element. (This allows us to recognize "/32" as a bitness-selector)
-⍝ mode is optional, default is + (select). Alternative values: ~ (=un-select, disable)
-⍝ [version] is any number, optionally with decimals and selects a version-number. Using syntax from-to you may also specify a range of versions.
-⍝ [edition]∊uUcC or _: Unicode, Class or "_" for both
-⍝ [bits] is 32 or 64 or can be elided to select both
-⍝ each of the three elements can be elided, but at least one must be given for a sensible selection obviously...
-⍝
-⍝ optional left arg can be used to control result:
-⍝ x - return vtv with path(s) to exe
-⍝ i =    -II-         id(s)
-⍝ o =    -II-         objects (containing fields as exe, id etc. - from the file ]APLVersions uses )
-⍝ Selections will be applied in the sequence they appear. Each operation adds to new - starting with an empty list obviously.
+    ∇ new←FilterAPLVersions arg;inst;l3;cmd;disable;z;range;objs;list;hlp;dsl;z1;z2
+⍝:: Process ","-separated filters in dsl to build list of selected interpreters
+⍝AParse: 1S -get∊xiovV -ucmd=0
+⍝A?: This implements a DSL for selection of Dyalog interpreters:
+⍝A?: [mode][[version[s]]|/][edition][bits]
+⍝A?: if version(s) is elided, a / must be given to indicate missing first element. (This allows us to recognize "/32" as a bitness-selector)
+⍝A?: mode is optional, default is + (select, enable). Alternative values: ~ (=un-select, disable)
+⍝A?: [version] is any number, optionally with decimals and selects a version-number. Using syntax from-to you may also specify a range of versions.
+⍝A?: [edition]∊uUcC or _: Unicode, Class or "_" for both
+⍝A?: [bits] is 32 or 64 or can be elided to select both
+⍝A?: each of the three elements can be elided, but at least one must be given for a sensible selection obviously...
+⍝A?:
+⍝A?: modifier -get= can be used to control the type of result:
+⍝A?: x - return vtv with path(s) to exe
+⍝A?: i =    -II-         id(s)
+⍝A?: o =    -II-         objects (containing fields as exe, id etc. - from the file ]APLVersions uses )
+⍝A?: v = return two vectors, each being a vtv itself with ids of enabled/disabled interpreters
+⍝A?:     (as if applied on an empty list - but then selecting from available interpreters)
+⍝A?: V= the same format & contest as "v", but the previous returns the effect of the executed DSL,
+⍝A?:    whereas V reports on the current status. (to make that clear: consider 17+18 are enabled and
+⍝A?     you pass DSL +16-17.  "v" will only report 16 - because that has changed. V reports 16,17,18
+⍝A?     because that is "current" when the DSL has been applied.)
+⍝A?: Selections will be applied in the sequence they appear. Each operation adds to new - starting with an empty list obviously.
+     
+      :If ''=⍥⎕DR arg       ⍝ if arg is char,
+          arg←arg{~∨/⍵⍷⎕C ⍺:⍺,' ',⍵ ⋄ ⍺}'-ucmd=0'  ⍝ this is an API-Call - so be sure to add the -ucmd=0-modifier if we don't see it
+          hlp←∨/'-?'⍷⍕arg   ⍝ remember if user asked for help
+          arg←##._Parse arg
+          :If hlp            ⍝ if he asked for help
+              new←arg        ⍝ return it (Parse will have put it into its result!)
+              →0             ⍝ and exit
+          :EndIf
+      :EndIf
+     
+      dsl←##._getArg 1 arg
+     
       objs←⎕JSON 1⊃⎕NGET _FileWithListOfInterpreters
       objs←(objs.id≢¨⊂'doc')/objs
       list←objs.id
       l3←('(\d\d[\.?\d]?)([ |c|u])(\d{2})'⎕S'\1 \2 \3'⍠1)list
       ⍝ convert list into [;1]=id, [;2]=version, [;3]=bits, [;4]=edition
       l3←list,↑{({⍬⍴(2⊃⎕VFI 2↑⍵)+(2<≢⍵)×0.1×2⊃⎕VFI ¯1↑⍵}¨⍵[1 3]),⎕C 2⊃⍵}¨{' '(≠⊆⊢)⍵}¨l3
-      new←⍬   ⍝ start with an empty list
+      :If 'V'=arg.Switch'get'
+          new←({6::1 ⋄ 0=≢⍵.disabled}¨objs)/objs.id   ⍝ start with current list and then apply changes if we're in V-mode!
+      :Else
+          new←⍬   ⍝ start with an empty list
+      :EndIf
       :For cmd :In ','(≠⊆⊢),dsl   ⍝ look at one instruction after the next
           disable←'~'=⊃cmd ⋄ cmd←(∨/'+~'=⊃cmd)↓cmd
           :If cmd≡⍥⎕C'all'
@@ -817,18 +877,25 @@
           :If disable
               new←new~z/l3[;1]
           :Else
-              new,←z/l3[;1]
+              new∪←z/l3[;1]
           :EndIf
       :EndFor
-      :If 2=⎕NC'opt'
+      :If 0≢cmd←arg.Switch'get'
           z←objs.id∊new
-          :Select ⎕C opt
+          :Select ⍬⍴cmd
           :Case 'x'
               new←z/objs.exe
           :Case 'i'
               new←z/objs.id
           :Case 'o'
               new←z/objs
+          :Case 'v'
+              new←(z/objs.id)((~z)/objs.id)
+          :Case 'V'
+              z1←objs.id≢⊂'doc'
+              z2←{6::1 ⋄ 0=≢⍵.disabled}¨objs
+              ⍝new←((z1∧z2)/objs.id)((z1∧~z2)/objs.id)
+              new←(new)(objs.id~new)
           :EndSelect
       :EndIf
      
