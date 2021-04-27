@@ -11,7 +11,7 @@
 
     ∇ r←level Help cmd
       Init
-      r←level ⎕SE.CITA.UCMD.Help
+      r←level ⎕SE.CITA.UCMD.Help cmd
     ∇
 
     ∇ r←Run(cmd args)

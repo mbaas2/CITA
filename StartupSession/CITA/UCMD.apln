@@ -41,7 +41,11 @@
       col←col+'_Parse'≡2⊃⎕SI   ⍝ if we're called from _Parse, we need to return the help for the API
       r←##.UCMD._Help{(⍺[;⍳2]∧.≡⍵)⌿⍺[;col]}cmd level
       :If ∨/(∊0<≢¨##.UCMD._Help[;col])/##.UCMD._Help[;⍳2]∧.≡cmd(level+1)
-          r,←(⊂''),(⊂']',(1⊃(⎕JSON ##.UCMD._List).Group),'.',cmd,' -',((level+2)⍴'?'),'    ⍝ for more details')
+          :If level=⌊level  ⍝ UCMD-Help
+              r,←(⊂''),(⊂']',(1⊃(⎕JSON ##.UCMD._List).Group),'.',cmd,' -',((⌊level+2)⍴'?'),'    ⍝ for more details')
+          :Else ⍝ API-Help
+              r,←(⊂''),(⊂'↑',(⍕2⊃⎕NSI),'.',cmd,' ''-',((⌊level+2)⍴'?'),'''    ⍝ for more details')
+          :EndIf
       :EndIf
     ∇
 :endnamespace

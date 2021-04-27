@@ -6,7 +6,7 @@
     DEBUG←1
     If←/⍨   ⍝  AB's father
 
-    ∇ (R log)←APLVersions arg;k;i;keys;int;exe;bak;cnt;file;json;old;doc;platform;fld;cJSON;z1;z2;t;old∆;k2;lglv;hlp;args;res
+    ∇ (R log)←APLVersions arg;k;i;keys;int;exe;bak;cnt;file;json;old;doc;platform;fld;cJSON;z1;z2;t;old∆;k2;lglv;hlp;args;res;updated
 ⍝:: Reports the current list of local interpreters (or updates it with the right modifieres set)
 ⍝?:
 ⍝?: ]APLVersions
@@ -54,48 +54,50 @@
      
       int←⍬
       cJSON←⎕JSON⍠'Compact' 0
+      R←0
       log←''
       :If ⎕NEXISTS file←_FileWithListOfInterpreters
           log←⊂'Using list of interpreters from file "',file,'"'
           old∆←⎕JSON ⎕JSON old←(⎕JSON⍠'Dialect' 'JSON5')1⊃⎕NGET file
           :If 0=0 args.Switch'update'
-              res←FilterAPLVersions(⊃args.Arguments),' -get=V'
-     
-              Disable←{⍝ ⍺=interpreters,  ⍵[1] ids to handle, ⍵[2]=new value
-                  i←⍸⍺.id∊int←1⊃⍵
-                  ⍺{16::NOP←⍬ ⋄ ⍺[i].disabled←⍵[2]}⍵  ⍝ avoid NONCE ERROR if i=⍳0
-                  z←~int∊⍺.id
-                  1=∨/z:⎕←'Version(s) ',(¯2↓∊'"',¨int,¨⊂'", '),' not found!'
-              }
-              :If 0≢t←2⊃res
-                  old Disable t(∊'"Disabled with ""]APLVersions -disable"" on "Dddd, DDoo Mmmm YYYY; hh:mm:ss'(1200⌶)1 ⎕DT⊂⎕TS)
-              :EndIf
-              :If 0≢t←1⊃res
-                  old Disable t''
+              res←FilterAPLVersions((args._1≢0)/args._1),' -get=V'
+              :If updated←args._1≢0 ⍝ if DSL was given, process it
+                  Disable←{⍝ ⍺=interpreters,  ⍵[1] ids to handle, ⍵[2]=new value
+                      i←⍸⍺.id∊int←1⊃⍵
+                      ⍺{16::NOP←⍬ ⋄ ⍺[i].disabled←⍵[2]}⍵  ⍝ avoid NONCE ERROR if i=⍳0
+                      z←~int∊⍺.id
+                      ∨/z:⎕←'Version(s) ',(¯2↓∊'"',¨int,¨⊂'", '),' not found!'
+                  }
+                  :If 0≢t←2⊃res
+                      old Disable t(∊'"Disabled with ""]APLVersions -disable"" on "Dddd, DDoo Mmmm YYYY; hh:mm:ss'(1200⌶)1 ⎕DT⊂⎕TS)
+                  :EndIf
+                  :If 0≢t←1⊃res
+                      old Disable t''
+                  :EndIf
               :EndIf
               k←↑7↑¨({6::0 ⋄ 'doc'≢⍵.id:0=≢⍵.disabled ⋄ 0}¨old)/old.id
               k2←↑7↑¨({6::1 ⋄ 'doc'≢⍵.id:0<≢⍵.disabled ⋄ 0}¨old)/old.id
-              :If 1=args.Switch'compact'
+              :If 1=0 args.Switch'compact'
                   log,←⊂'enabled : ',¯2↓,(k,','),' '
                   log,←⊂'disabled: ',¯2↓,(k2,','),' '
-                  →End If 1=args.Switch'find'
-              :ElseIf 2=args.Switch'compact'
+              :ElseIf 2=0 args.Switch'compact'
                  ⍝ compact=2: return two vectors of vtvs with enabled/disabled interpreters
-                  log←k k2
-                  →End If 1=args.Switch'find'
+                  log←↓¨k k2
               :Else
                   log,←⊂'enabled   disabled'
                   log,←⊂'-------   --------'
                   log,←↓k{a←⍺,' ' ⋄ a,⍥{(a⌈⍥≢w)↑⍵}⍵}w←' ',' ',k2
               :EndIf
-              R←⍬
-              :If old≢old∆
+              :If 1=0 args.Switch'ucmd'
+                  R←⍬     ⍝ indicator that we do not want indicator for status of R
+              :EndIf
+              :If updated
                   (⊂cJSON old)⎕NPUT file 1
                     ⍝log,←⊂'Updated file "',file,'"'
               :EndIf
               →End
           :EndIf
-      :ElseIf 1≢args.Switch'update'
+      :ElseIf 1≢0 args.Switch'update'
           log←⊂'No list of interpreters found. File ',file,' does not exist.'
           →End
       :EndIf
@@ -222,7 +224,7 @@
           log,←⊂'Nothing to do - no interpreters found! (How did you even execute this code?)'
       :EndIf
      End:
-      :If 1≡args.Switch'ucmd'
+      :If 1=0 args.Switch'ucmd'
           R←⍬  ⍝ no need to show interpretation of rc when running UCMD
       :EndIf
     ∇
@@ -789,9 +791,16 @@
 ⍝A?:     (as if applied on an empty list - but then selecting from available interpreters)
 ⍝A?: V= the same format & contest as "v", but the previous returns the effect of the executed DSL,
 ⍝A?:    whereas V reports on the current status. (to make that clear: consider 17+18 are enabled and
-⍝A?     you pass DSL +16-17.  "v" will only report 16 - because that has changed. V reports 16,17,18
-⍝A?     because that is "current" when the DSL has been applied.)
-⍝A?: Selections will be applied in the sequence they appear. Each operation adds to new - starting with an empty list obviously.
+⍝A?:    you pass DSL +16-17.  "v" will only report 16+17 - because these were added. V reports 16,17,18
+⍝A?:    because would be "current" when the DSL has been applied.) In other words:
+⍝A?:    "v" starts with an empty list, "V" starts with the current list of interpreters.
+⍝A?: Selections will be applied in the sequence they appear.
+⍝A??: A dangerous gotcha is the fact that the DSL-Operations add or remove. 
+⍝A??: The expression "u" (or "+u") adds unicode-interpreters (with "V" to the current list, so it won't REMOVE classic from the list)
+⍝A??: You'd need ~c to achieve that!
+⍝A??: To query the list of installed v16-Interpreters, you can do "16 -v". But to get a list
+⍝A??: of already enabled interpreters, you'd need more that just changing v into V, you'd also
+⍝A??: have to disable unwanted interpreters: "16,~-15.99,~17- -V".
      
       :If ''=⍥⎕DR arg       ⍝ if arg is char,
           arg←arg{~∨/⍵⍷⎕C ⍺:⍺,' ',⍵ ⋄ ⍺}'-ucmd=0'  ⍝ this is an API-Call - so be sure to add the -ucmd=0-modifier if we don't see it
@@ -819,7 +828,7 @@
       :For cmd :In ','(≠⊆⊢),dsl   ⍝ look at one instruction after the next
           disable←'~'=⊃cmd ⋄ cmd←(∨/'+~'=⊃cmd)↓cmd
           :If cmd≡⍥⎕C'all'
-              z←(≢l3)⍴~disable
+              z←(≢l3)⍴1
           :Else
               :If '/'≠⊃cmd
                   range←0 ¯1 99 0 0 ⍝ range[1]: yes, "-" was used, [2] is start and [3] is end of range, range [4 5]: was a '.' used in the version-spec 2&3
