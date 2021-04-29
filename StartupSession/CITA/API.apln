@@ -773,7 +773,7 @@
 
     ∇ new←FilterAPLVersions arg;inst;l3;cmd;disable;z;range;objs;list;hlp;dsl;z1;z2
 ⍝:: Process ","-separated filters in dsl to build list of selected interpreters
-⍝AParse: 1S -get∊xiovV -ucmd=0
+⍝AParse: 1S -get∊xiovVf -ucmd=0
 ⍝A?: This implements a DSL for selection of Dyalog interpreters:
 ⍝A?: [mode][[version[s]]|/][edition][bits]
 ⍝A?: if version(s) is elided, a / must be given to indicate missing first element. (This allows us to recognize "/32" as a bitness-selector)
@@ -793,9 +793,10 @@
 ⍝A?:    whereas V reports on the current status. (to make that clear: consider 17+18 are enabled and
 ⍝A?:    you pass DSL +16-17.  "v" will only report 16+17 - because these were added. V reports 16,17,18
 ⍝A?:    because would be "current" when the DSL has been applied.) In other words:
-⍝A?:    "v" starts with an empty list, "V" starts with the current list of interpreters.
-⍝A?: Selections will be applied in the sequence they appear.
-⍝A??: A dangerous gotcha is the fact that the DSL-Operations add or remove. 
+⍝A?:    "v" starts with an empty list, "V" starts with the current list of interpreters (and then adds/removes)
+⍝A?: f= return list of enabled interpreters filtered against the commands from the DSL.
+⍝A?: Filters will be applied in the sequence they appear.
+⍝A??: A dangerous gotcha is the fact that the DSL-Operations add or remove.
 ⍝A??: The expression "u" (or "+u") adds unicode-interpreters (with "V" to the current list, so it won't REMOVE classic from the list)
 ⍝A??: You'd need ~c to achieve that!
 ⍝A??: To query the list of installed v16-Interpreters, you can do "16 -v". But to get a list
@@ -905,6 +906,9 @@
               z2←{6::1 ⋄ 0=≢⍵.disabled}¨objs
               ⍝new←((z1∧z2)/objs.id)((z1∧~z2)/objs.id)
               new←(new)(objs.id~new)
+          :CaseList 'fF'
+              z←(objs.id∊new)∧{6::1 ⋄ 0=≢⍵.disabled}¨objs
+              new←z/objs.id
           :EndSelect
       :EndIf
      
