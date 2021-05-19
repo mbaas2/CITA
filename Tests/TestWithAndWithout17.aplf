@@ -7,16 +7,11 @@
  :Trap 0
      {}⎕SE.CITA.API.APLVersions'-update -loglevel=1 -ucmd=0'   ⍝ call the API-function to update inventory of interpreters
  :Else
-     →fail Because'Executing API-fn "APLVersions" crashed with this error: ',(⎕UCS 13),⎕JSON ⎕DMX
+     →fail Because'Executing API fn "APLVersions" crashed with this error: ',(⎕UCS 13),⎕JSON ⎕DMX
  :EndTrap
  :For (wd∆ expect) :In ('NoFailureWith17' 0)('FailureWith17' 1)
    ⍝ 1. Test against the current interpreter
-     wd←##.TESTSOURCE,wd∆,'_wd' ⋄ cnt←0
-     :While ⎕NEXISTS dir←wd,{⍵=0:'' ⋄ ⍕⍵}cnt
-         cnt+←1
-     :EndWhile
-     3 ⎕MKDIR wd←dir
-     params←##.TESTSOURCE,'/',wd∆,'/CITA.json5 -empty -workdir="',wd,'" -cleanup=O'   ⍝ include "-empty" because we run the test again (with the API)
+     params←##.TESTSOURCE,'/',wd∆,'/CITA.json5'   ⍝ include "-empty" because we run the test again (with the API)
      :If ##.verbose
          ⎕←'Executing local test with params ',params
      :EndIf
@@ -24,9 +19,11 @@
 
    ⍝ now "res" has the log
    ⍝ examine whether it tells the expected success story ;)
+     aplv←'.'⎕WG'APLVersion'
+     :If ##.verbose ⋄ ⎕←'Executing against ',aplv ⋄ :EndIf
      test4←'-─'[2-expect]
      :If expect_rc←expect   ⍝ if we expect a failure
-         :If 17=1⊃2⊃'.'⎕VFI 2⊃'.'⎕WG'APLVersion'  ⍝ we need to look at the the version we're running
+         :If 17=1⊃2⊃'.'⎕VFI 2⊃aplv  ⍝ we need to look at the the version we're running
              test4←'-'
          :Else
              expect_rc←¯1 ⋄ test4←'~'     ⍝ because the test will only fail on 17...
@@ -34,27 +31,25 @@
      :EndIf
      :If ##.verbose ⋄ ⎕←'Does log commence with "',test4,'"?' ⋄ :EndIf
      :If test4 Check 1⊃res
-         →fail Because'Log did not commence with "',test4,'" as an indicator of ',((1+expect)⊃'failed ' 'successful'),' tests' ⋄ :EndIf
+         →fail Because'Log did not commence with "',test4,'" as an indicator of ',((1+expect)⊃'failed' 'successful'),' tests' ⋄ :EndIf
 
     ⍝ also test the API
      :If ##.verbose ⋄ ⎕←'Test API with the same call' ⋄ :EndIf
-     (rc log)←⎕SE.CITA.API.ExecuteLocalTest params
-     :If expect_rc Check rc
+     ns←⎕SE.CITA.API.ExecuteLocalTest params
+     :If expect_rc Check ns.rc
          →fail Because'The API returned a different result than the UCMD!' ⋄ :EndIf
 
      ⍝ 2. Test against all interpreters
      ⍝ ideally APLVersions API should aLso return a vector with names of enables/disabled interpreters, so that we can run this test against 17 or all others and better control our expectation
-     params←##.TESTSOURCE,'/',wd∆,'/CITA.json5 -empty -workdir="',wd,'" -cleanup=O -all'   ⍝ include "-empty" because we run the test again (with the API)
+     params←##.TESTSOURCE,'/',wd∆,'/CITA.json5 -int=',f←(1+expect)⊃'all,~17' '17'
      :If ##.verbose
-         ⎕←'Executing local test against all interpreters '
+         ⎕←'Executing local test against the local interpreters filtered using',f
      :EndIf
      {}⎕SE.UCMD'res←ExecuteLocalTest ',params
-     :If '─-'[⎕io+expect] Check 1⊃∊res
-         ~fail Because'Log is not show indicator fur successfull tests: ',(⎕UCS 13),∊res,¨⎕ucss 13
+     :If '─-'[⎕IO+expect]Check 1⊃∊res
+         →fail Because'Log does not show expected indicator for ',((⎕IO+expect)⊃'successful' 'failed'),' tests: ',(⎕UCS 13),∊res,¨⎕UCS 13
      :ElseIf ##.verbose
          ⎕←∊(⎕UCS 13),¨¯4↑(⎕UCS 13)(≠⊆⊢)res
      :EndIf
-
-
  :EndFor
 fail:

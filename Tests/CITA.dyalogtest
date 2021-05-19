@@ -2,5 +2,9 @@ DyalogTest : 1.44
 ID         : CITA
 Description: Testing CITA
 
+Test       : test_errorHandling
+Test       : test_aplCore
+Test       : test_WSFULL
+
 ⍝ the following will work on all interpreters except 17 (which is by design, as I also needed to test that failing tests are handled correctly...)
-Test    : TestWithAndWithout17
+Test       : TestWithAndWithout17

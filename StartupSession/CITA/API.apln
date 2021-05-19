@@ -1,5 +1,5 @@
 :namespace API
-    nl←⎕UCS 13
+    NL←⎕UCS 10
     ⎕ml←1
     ⎕io←1
     Timeout←180 ⍝ seconds before we consider a job to have timedout
@@ -39,6 +39,7 @@
 ⍝A?: -compact=2: two-element vector with ids of enabled & disabled interpreters
      
 ⍝ the "standard"-header for the API-Functions takes care of providing help when the fn is called directly
+      _InitUCMDs  ⍝ yeah, this is ambigous - but the API-fns also rely on ##.Home being set up. May find a better way to name or address this...
       :If ''=⍥⎕DR arg                              ⍝ if arg is char,
           arg←arg{~∨/⍵⍷⎕C ⍺:⍺,' ',⍵ ⋄ ⍺}'-ucmd=0'  ⍝ this is an API-Call - so be sure to add the -ucmd=0-modifier if we don't see it
           hlp←∨/('-?'⍷⍕arg)                        ⍝ remember if user asked for help
@@ -229,29 +230,56 @@
       :EndIf
     ∇
 
-    ∇ {(res Log)}←ExecuteLocalTest arg;fld;fl;loc;xin;rc;specs;R;step;specsObj;lg;cnt;list;showedIO;log;del;list2;v;xin∆;jlog;cfg;rcTest;interpreters;interpreter;t;int;resTab;plus;V;B;b;E;xinO;lint;dot
+    ∇ {ns}←ExecuteLocalTest arg;fld;fl;loc;xin;rc;specs;R;step;specsObj;lg;cnt;list;showedIO;log;del;list2;v;xin∆;jlog;cfg;rcTest;interpreters;interpreter;t;int;resTab;plus;V;B;b;E;xinO;lint;dot;item
 ⍝:: Execute local tests
 ⍝?: Execute local tests
 ⍝?:
-⍝?: ]ExecuteLocalTest <path>CITA.json[5] [-cleanup[=O|N]] | [-cleanup[=N]]] [-int=180U64...]
-⍝Parse:               1L                 -cleanup[∊]ON -int∊0123456789UC,
+⍝?: ]ExecuteLocalTest <path>CITA.json[5] [-keep[∊RCcr]] -keeponfailure[∊RCcr] [-int[=180U64...]
+⍝Parse:               1L                  -keep[∊]RCcr  -keeponfailure[∊]RCcr  -int[∊]"0123456789UCuc_/,.~-all"
 ⍝??: Execute local tests
 ⍝??:
-⍝??: <path>               location of CITA.json or CITA.json5 file
-⍝??: <folder>             tests are executed in an automaticylly created subfolder of TEMP/CITA_Test/yymmdd_hhmmss
+⍝??: ]ExecuteLocalTest <path>CITA.json[5] [-keep[=C|R]] [-int=180U64...]
+⍝??: <path>               location of CITA.json or CITA.json5 file OR http[s]-URL of a repo that has a CITA.json[5] file
+⍝??: <folder>             tests are executed in an automatically created subfolder of TEMP/CITA_Test/yymmdd_hhmmss
 ⍝??:
 ⍝??: -int=ids             test against a subset of specified interpreters (comma-separated list of filters using the "version filtering DSL" of ]APLVersions)
+⍝??:                      just use modifies w/o assigning value to run tests against all enabled interpreters
 ⍝??:
-⍝??: -cleanup             files to delete after running tests:
-⍝??: -cleanup=O           delete only Old files copied from <path> (keeps files resulting from tests)
-⍝??: -cleanup=N           delete only New files created while running the tests (keeps files copied from <path>)
-⍝??: -cleanup=ON          delete all files in <folder> after running tests
+⍝??: -keep                which files should be keep after running the tests? (Default (if -keep is used w/o value) is "cr")
+⍝??: -keep=c              code - the content of the folder/repository that was tested
+⍝??: -keep=r              results - everything created while running tests (APLCOREs, log files of APL Session or DTest etc.)
+⍝??:
+⍝??: -keeponfailure       different keep-Settings i case tests fail. (Default (if -keeponfailure is given without values) is "cr"))
+⍝??: -keeponfailure=cr    one or both of cr (casing is irrlevant) can be used with the same meaning as before with -keep
 ⍝??:
 ⍝??: Hint: the result's header gives a first quick indication of the result: straight line indicates success. dashed line means failure!
 ⍝??: ]APLVersions -??   ⍝ for a description of the "version filtering DSL"
+⍝A?: Result is a namespace with these elements:
+⍝A?: rc - return code
+⍝A?:      ¯1=no test executed
+⍝A?:       0=ok
+⍝A?:       1=Test failed (Details in the Log)
+⍝A?: Individual tests have returncodes as well (they are shown in "Log"). These come with a higher granularity,
+⍝A? i.e. there's a better differentiation of the problems that occured:
+⍝A?:       0= all ok
+⍝A?:       1=test failed
+⍝A?:       2=aborted because of Timeout
+⍝A?:       3=no status file found
+⍝A?:       4=invalid or non-existent file
+⍝A?:       5=APL errors executing test
+⍝A?:       6=executing test ended with APLCORE
+⍝A?:       7=WS FULL
+⍝A?:       8=Likely hit a Classic vs. Unicode-error (TRANSLATION ERROR etc.)
+⍝A?: Log
+⍝A?: testMat:  Matrix - Tests x Interpreters with single-letter result of corresponding test.
+⍝A?:           First row/col has titles of tests and interpreters
+     
+      _InitUCMDs  ⍝ yeah, this is ambigous - but the API-fns rely on ##.Home being set up. May find a better way to name or address this...
+      ns←⎕NS''
       res←¯1  ⍝ res=¯1 indicates no test were run!
       Log←''
       arg←##._Parse arg  ⍝ ensure its a parsed arg...
+     
       fl←∊1 ⎕NPARTS(1 ''##._getArg 1 arg)  ⍝ fld=folder, fl=path to a CITA.json
       ('File or directory "',fl,'" not found')⎕SIGNAL(~⎕NEXISTS fl)/700
       fl,←(1=∊1 ⎕NINFO fl)/('\/'∊⍨⊢/fl)↓'/CITA.JSON'  ⍝ we also accept folders as arg and append the filespec automatically (since we're expecting one specific file anyway)
@@ -260,16 +288,6 @@
 ⍝      xinO←0(1⊃⎕NPARTS fl)##._getArg'workdir'arg
       xinO←(739⌶0),,'</CITA_Test/>,ZI4,ZI2,ZI2,<_>,ZI2,ZI2,ZI2,</>'⎕FMT 1 6⍴⎕TS
       3 ⎕MKDIR xinO
-      :If xinO≢fld
-          :If 0<≢list←⊃0(⎕NINFO⍠('Recurse' 1)('Wildcard' 1))xinO,'*'
-              :If ~arg.Switch'empty'
-                  (res Log)←702 'workdir is not an empty folder'
-                  →0
-              :Else
-                  {}1 ⎕NDELETE⌽list  ⍝ transpose to be sure that we delete files before removing the subfolder containing them
-              :EndIf
-          :EndIf
-      :EndIf
      
       int←0  ⍝ count of interpreter
       interpreters←,0  ⍝ default (signals to APLProcess to use current)
@@ -286,15 +304,17 @@
       :EndIf
       Log,←lg
       lint←''
-      :If arg.Switch'all'
-      :OrIf 0<≢lint←''arg.Switch'int'
-          lg←APLVersions'-ucmd=0 -loglevel=2 -compact'
-          Log,←⊆lg
+      :If 0<≢lint←{1≡⍵:' ' ⋄ ⍵}''arg.Switch'int'
+          lg←FilterAPLVersions{(∨\' '≠⍵)/⍵}lint,' -get=f'
+          :If lint≢' '
+              Log,←⊂'Filtered interpreters with "',lint,'"'
+          :EndIf
+          Log,←⊆'Testing against these active interpreters: ',¯2↓∊lg,¨⊂', '
           t←1⊃⎕NGET _FileWithListOfInterpreters
           interpreters←_FoldJson t
           interpreters←({6::1 ⋄ 'doc'≢⍵.id:0=≢⍵.disabled ⋄ 0}¨interpreters)/interpreters
           :If 0<≢lint
-              interpreters←(interpreters.id∊','(≠⊆⊢)lint)/interpreters
+              interpreters←(interpreters.id∊lg)/interpreters
           :EndIf
       :EndIf
      ⍝ (⎕lc[1]+1)⎕stop 1⊃⎕si
@@ -350,7 +370,7 @@
                           :If interpreter≡0
                               Log,←⊂'Current interpreter (v=',(⍕V),') rejected by test which selected "',(⍕specs.dyalogversions),'"'
                           :Else
-                              Log,←⊂'Interpreter ',interpreter.id,'(v=',(⍕V),') rejected by test which selected "',(⍕specs.dyalogversions),'"'
+                              Log←(¯1↓Log),⊂'Interpreter ',interpreter.id,'(v=',(⍕V),') rejected by test which selected "',(⍕specs.dyalogversions),'"'
                           :EndIf
                           →EndForSpec
                       :EndIf
@@ -390,32 +410,27 @@
               resTab[cnt+1;int+1]←' '
      
               log←''
-              :If xin∆≢fld
-                  xin←xin∆,(⍕specs.id),'/'
+              xin←xin∆,(⍕specs.id),'/'
+              :Trap (~DEBUG)/0
+                  ⎕MKDIR xin
+              :Else
+                  xin←xin∆,(⍕cnt),'/'
+                  log,←⊂'The jobid "',specs.id,'" caused an error when attempting to create a folder with that name.'
                   :Trap (~DEBUG)/0
                       ⎕MKDIR xin
+                      log,←⊂'Solved that using counter (',(⍕cnt),') instead.'
                   :Else
-                      xin←xin∆,(⍕cnt),'/'
-                      log,←⊂'The jobid "',specs.id,'" caused an error when attempting to create a folder with that name.'
-                      :Trap (~DEBUG)/0
-                          ⎕MKDIR xin
-                          log,←⊂'Solved that using counter (',(⍕cnt),') instead.'
-                      :Else
-                          log,←⊂'** Attempt to use counter (',(⍕cnt),') failed as well! Giving up.' ⋄ →EndStep
-                      :EndTrap
+                      log,←⊂'** Attempt to use counter (',(⍕cnt),') failed as well! Giving up.' ⋄ →EndStep
                   :EndTrap
-              :Else
-                  xin←xin∆
+              :EndTrap
+     
+              :If 0≠xin _CopyFolder fld
+                  (res log)←703 'Problem copying files into workdir-folder'
+                  →EndStep
               :EndIf
      
 ⍝ remember files we had before tests were executed...
               list←⊃0(⎕NINFO⍠('Recurse' 1)('Wildcard' 1))xin,'*'
-              :If xin≢fld
-                  :If 0≠xin _CopyFolder fld
-                      (res log)←703 'Problem copying files into workdir-folder'
-                      →EndStep
-                  :EndIf
-              :EndIf
      
               cfg←''
               :If 9=specs.⎕NC'config'
@@ -451,6 +466,14 @@
                       :Case 4
                           R←rc('Invalid or non-existent file "',fl,'" for step "',step,'"')
                           :Leave
+                      :Case 5
+                          R←rc('APL Error executing code from ',fl)
+                      :Case 6
+                          R←rc(step,' (using "',fl,'") ended with APLCORE!')
+                      :Case 7
+                          R←rc(step,' (using "',fl,'") ended with WS FULL!')
+                      :Case 8
+                          R←rc(step,' (using "',fl,'") probably had issue with Classic/Unicode-compatibility')
                       :EndSelect
                   :EndIf
               :EndFor
@@ -472,38 +495,41 @@
               :EndIf
               Log,←⊂''
      
-              resTab[cnt+1;int+1]←'+-tni?'[0 1⍳⊃,rcTest]
-              list2←⊃0(⎕NINFO⍠('Recurse' 1)('Wildcard' 1))xin∆,'*'   ⍝ remember files we had before tests were executed...
+              resTab[cnt+1;int+1]←'+-tniecw¢'[1+rcTest]
+              list2←⊃0(⎕NINFO⍠('Recurse' 1)('Wildcard' 1))xin,'*'   ⍝ remember files we had before tests were executed...
               del←0⍴⊂''
      
-              :Select v←arg.Switch'cleanup'
-              :CaseList 'ON' 'NO'
-                  :If fld≡xin∆
-                      ⎕←'Use of modifier -cleanup=',v,' is not supported when -workdir was not given or the same as the source folder of CITA.json'
-                  :Else
-                      del←list2
-                  :EndIf
-              :Case 'N'
-                  del←(~list2∊list)/list2
-              :Case 1
-                  :If fld≢xin∆
-                      ⎕←'Use of modifier -cleanup without assignment of a value is not supported when -workdir is used '
-                  :Else
-                      del←(~list2∊list)/list2
-                  :EndIf
-              :Case 'O'
-                  :If fld≡xin∆
-                      ⎕←'Use of modifier -cleanup=',v,' is not supported when -workdir was not given or the same as the source folder of CITA.json'
-                  :Else
-                      del←list2
-                  :EndIf
+              keep←arg.Switch'keep'
+              :If rcTest≠0   ⍝ if test was successfull
+                  keep←keep arg.Switch'keeponfailure'
+              :EndIf
+     
+              :Select keep←{⍵[⍋⍵]}⎕C,keep
+              :Case ,'r'
+                  del←(list2∊list)/list2
+              :CaseList ,¨'c' 0   ⍝ 0=DEFAULT, if keep specified
+                  del←list
+              :Case 'cr'(,1)      ⍝ 1=if "-keep" was used
+                  del←⍬
+              :Case ''            ⍝ -keep=  > delete everything, keep nothing!
+                  del←list2
               :EndSelect
-              :Trap (~DEBUG)/0  ⍝ :;trap 0 If ~DEBUG (AB!)
+              :Trap DEBUG↓0
+                  :For item :In ⌽del
+                      :If 1=⊃1 ⎕NINFO item                  ⍝ if the items is a folder
+                      :AndIf 0<≢⊃0(⎕NINFO⍠1)item,'/*'   ⍝ and there are still files in it
+                          del←del~⊂item                  ⍝ do not attempt to delete it
+                      :EndIf
+                  :EndFor
                   1 ⎕NDELETE⌽del   ⍝ we try to delete files and folders individually
+⍝                  ⎕TRAP←0 'S' ⋄ ∘∘∘
+                  :If 0=≢keep
+                      1 ⎕NDELETE xin
+                  :EndIf
               :Else
-                  log←⊂'Trapped error while clearing folder "',xin∆,'":',nl,⎕JSON ⎕DMX
+                  log←⊂'Trapped error while clearing folder "',xin,'":',NL,⎕DMX.(OSError{⍵,2⌽(×≢⊃⍬⍴2⌽⍺)/'") ("',⊃⍬⍴2⌽⍺}Message{⍵,⍺,⍨': '/⍨×≢⍺}⊃⍬⍴DM,⊂'')
                   res←702
-                  →EndStep
+                  →EndForSpec
               :EndTrap
      EndForSpec:
           :EndFor
@@ -512,9 +538,16 @@
       :If interpreters≢,0    ⍝ if we run against multiple interpreters
       :AndIf rcTest≠¯1       ⍝ and tests were actually executed...
           Log,←↓⍕resTab
-          Log,←'' 'Explanation of status-symbols:'
-          Log,←⊂'+=success, -=failure, ~=disabled, t=timeout, n=not supported, ?=?'
+          Log,←'' 'Explanation of status indicators:'
+          Log,←⊂'+=success, -=failure, ~=disabled, t=timeout, n=no status file found, e=error, c=APLCORE in test, w=WS FULL executing test, ¢=classic vs. unicode'
       :EndIf
+      :If 'r'∊keep
+          Log,←⊂'Logs (including this log) can be found in ',xin∆,' and subfolders'
+          (⊂Log)⎕NPUT xin∆,'CITA.log'
+      :EndIf
+      ns.Log←Log
+      ns.rc←res
+      ns.testMat←resTab
     ∇
 
 
@@ -526,7 +559,10 @@
 ⍝             2=aborted because of Timeout
 ⍝             3=no status file found
 ⍝             4=invalid or non-existent file
-⍝             5=environment not appropriate (i.e. 17.1 can not use LOAD= to deal with .aplf)
+⍝             5=APL errors executing test
+⍝             6=executing test ended with APLCORE
+⍝             7=WS FULL
+⍝             8=Likely TRANSLATION ERROR
 ⍝ access global var "V" which has the APL-Version of the target-environment as a numeric value
 ⍝ access global var "E" which has the Edition of the target-environment (U|C)
      
@@ -544,16 +580,16 @@
           →EndJob
       :EndIf
      
-    ⍝ step of Statusfiles to indicate failure [1] or success[2]
-      StatusFiles←(⊂xin,'CITA.',⎕C step),¨'.err' '.ok'
+    ⍝ step of Statusfiles to indicate APL Errors [1], failure [2] or success[3]
+      StatusFiles←(⊂xin,'CITA.',⎕C step),¨'.err' '.fail' '.ok'
       1 ⎕NDELETE¨StatusFiles  ⍝ make sure there are no old statusfiles around...
      
       ⍝...and explicitely set a log_file for each step (to be stored in workdir-folder):
       cfg,←' LOG_FILE="',(log_file←xin,'log_',step,'.dlf'),'" CITA_Log="',(∊2↑⎕NPARTS 1⊃StatusFiles),'"'
-      cfg,←' APLCORENAME="',xin,'APLCORE_',step,'."'
-      :If ⎕SE.SALTUtils.WIN   ⍝ if we're tunning under Windows
+      cfg,←' APLCORENAME="',(aplcore←xin,'APLCORE_',step,'.'),'"'
+      :If ⎕SE.SALTUtils.WIN   ⍝ if we're running under Windows
       ⍝ add those flags to better deal with possible exceptions...
-          cfg,←'DYALOG_NOPOPUPS=1 PassExceptionsToOpSys=1'
+          cfg,←' DYALOG_NOPOPUPS=1 PassExceptionsToOpSys=1'
       :EndIf
      
       cpu←⎕AI[3]
@@ -575,8 +611,6 @@
           R←4('Did not recognize type of file "',file,'"') ⋄ →EndJob
       :EndSelect
       cmd,←' ',cfg
-      ⍝ ⎕←'Executing APLProcess in dir ',xin,':',⎕ucs 13
-      ⍝ ⎕← interpreter.exe dws,' 'cmd
       exited←¯1
       proc←⎕NEW ##.APLProcess(dws cmd(interpreter{0::0 ⋄ ⍺⍎⍵}'exe')'' ''xin)
       ai3←⎕AI[3]
@@ -585,27 +619,45 @@
           ⎕DL 1⌊specs.secondstimeout×1000  ⍝ delay one second by default, but allow smaller (if someone challenges our timeouts...)
       :Until (ai31←⎕AI[3])≥⌊ai3+specs.secondstimeout×1000
       :OrIf exited←proc.HasExited
-     
+      WSFULL←0  ⍝ has the test hit a WS FULL?
+      :If isDTest
+          :If ⎕NEXISTS TestLog
+              lg←1⊃⎕NGET TestLog
+              ⎕TRAP←0 'S' ⋄ ∘∘∘
+              :If ∨/'WS FULL'⍷lg
+                  ''⎕NPUT((∊2↑⎕NPARTS 1⊃StatusFiles),'.wsfull'
+                  WSFULL←1
+              :ElseIf ∨/∊'SYNTAX ERROR' 'VALUE ERROR' 'DOMAIN ERROR'⍷¨⊂lg  ⍝ check mmost common errors...
+                  ''⎕NPUT(1⊃StatusFiles)1
+              :Else
+                  ''⎕NPUT(2⊃StatusFiles)1
+              :EndIf
+          :Else
+              ''⎕NPUT(3⊃StatusFiles)1
+          :EndIf
+      :EndIf
       :If 0=⎕NC'exited'
       :OrIf exited∊0 ¯1   ⍝ TIMEOUT
           log←'Process did not complete within ',(1⍕0.001×⎕AI[3]-ai3),' seconds and was killed (SecondsTimeout=',(⍕specs.secondstimeout),((specs.secondstimeout=Timeout)/' default value'),')'
           {}proc.Kill
           R←2 ⋄ →EndJob
       :EndIf
-      :If isDTest
-         ⍝ how to determine success or failure? (On Windows we could use prod.GetExitCode, but that won't be general enough for CITA)
-          :If ⎕NEXISTS TestLog  ⍝ logfile was created → tests failed!
-              (⊂'')⎕NPUT 1⊃StatusFiles
-              log←']DTest created a logfile ("',TestLog,'") indicating failed tests. Details in that file'
-              R←1
-          :Else               ⍝ absence of log indicates success
-              (⊂'')⎕NPUT 2⊃StatusFiles
-              R←0
+      :If ⎕NEXISTS(∊2↑⎕NPARTS 1⊃StatusFiles),'.wsfull' ⋄ R←7 ⋄ →EndJob ⋄ :EndIf
+      :If WSFULL ⋄ R←7 ⋄ →EndJob ⋄ :EndIf
+      :If ⎕NEXISTS 3⊃StatusFiles ⋄ R←0 ⋄ →EndJob ⋄ :EndIf
+      :If ⎕NEXISTS 2⊃StatusFiles ⋄ log←'Test created logfile "',(2⊃StatusFiles),'" to indicate failed tests. More info might be found in it and in the APL Session-log "',log_file,'"' ⋄ R←1 ⋄ →EndJob ⋄ :EndIf
+      :If ⎕NEXISTS 1⊃StatusFiles
+          lg←1⊃⎕NGET 1⊃StatusFiles
+          :If ∨/∊'TRANSLATON ERROR' '⎕UCS '⍷¨⊂lg
+              log←'Test created logfile "',(1⊃StatusFiles),'" to indicate APL Errors while executing tests. String-matching of that log indicates we may have hit a TRANSLATION issue (Classic vs. Unicode)'
+              R←8
+          :Else
+              log←'Test created logfile "',(1⊃StatusFiles),'" to indicate APL Errors while executing tests. More info might be found in it and in the APL Session-log "',log_file,'"'
+              R←5
           :EndIf
           →EndJob
       :EndIf
-      :If ⎕NEXISTS 2⊃StatusFiles ⋄ R←0 ⋄ →EndJob ⋄ :EndIf
-      :If ⎕NEXISTS 1⊃StatusFiles ⋄ log←'Test created logfile "',(1⊃StatusFiles),'" to indicate failed tests. More info might be found in it and in the APL Session-log "',log_file,'"' ⋄ R←1 ⋄ →EndJob ⋄ :EndIf
+      :If ⎕NEXISTS aplcore ⋄ ⋄ log←'Test led to an APLCORE: ',aplcore ⋄ R←6 ⋄ →EndJob ⋄ :EndIf
       R←3
      
      EndJob:
@@ -635,7 +687,7 @@
           :EndFor
           :If rspec≡⍬ ⋄ rc←705 ⋄ →0 ⋄ :EndIf
       :Else
-          rc←701 ⋄ log←⊂'Error reading "',fl,'":',nl,⎕JSON ⎕DMX
+          rc←701 ⋄ log←⊂'Error reading "',fl,'":',NL,⎕JSON ⎕DMX
       :EndTrap
     ∇
 
@@ -704,11 +756,14 @@
 
     ∇ _InitUCMDs;fn;_quote;_findLine;nr;j;parse;maxH;h;hd;r;patt;mode
       ##.Home←##._getHomeDir
-      ##.UCMD._List←'[',nl
+      ##.UCMD._List←'[',NL
       ##.UCMD._Help←0 4⍴''   ⍝ [;1]=fn, [;2]=level, [;3]= regular hlp, [;4]=API-Help
-      _quote←{'"',⍵,'"'}
+      _quote←{'"',(∊(⊂'\"')@{⍵='"'}⍵),'"'}
       _findLine←{{(+/∧\⍵=' ')↓⍵}¨l↓¨(((l←2+≢⍵)↑¨⍺)≡¨⊂'⍝',⍵,':')/⍺}
       :For fn :In {('_'≠1⊃¨⍵)/⍵}##.API.⎕NL-3  ⍝ only for fns NOT starting with '_'
+          :If (⎕NC⊂fn)≠3.1
+              :Continue
+          :EndIf
           nr←##.API.⎕NR fn
           j←'{'
           j,←'"Name":',_quote fn
@@ -803,6 +858,7 @@
 ⍝A??: of already enabled interpreters, you'd need more that just changing v into V, you'd also
 ⍝A??: have to disable unwanted interpreters: "16,~-15.99,~17- -V".
      
+      _InitUCMDs  ⍝ yeah, this is ambigous - but the API-fns als rely on ##.Home being set up. May find a better way to name or address this...
       :If ''=⍥⎕DR arg       ⍝ if arg is char,
           arg←arg{~∨/⍵⍷⎕C ⍺:⍺,' ',⍵ ⋄ ⍺}'-ucmd=0'  ⍝ this is an API-Call - so be sure to add the -ucmd=0-modifier if we don't see it
           hlp←∨/'-?'⍷⍕arg   ⍝ remember if user asked for help
@@ -826,73 +882,77 @@
       :Else
           new←⍬   ⍝ start with an empty list
       :EndIf
-      :For cmd :In ','(≠⊆⊢),dsl   ⍝ look at one instruction after the next
-          disable←'~'=⊃cmd ⋄ cmd←(∨/'+~'=⊃cmd)↓cmd
-          :If cmd≡⍥⎕C'all'
-              z←(≢l3)⍴1
-          :Else
-              :If '/'≠⊃cmd
-                  range←0 ¯1 99 0 0 ⍝ range[1]: yes, "-" was used, [2] is start and [3] is end of range, range [4 5]: was a '.' used in the version-spec 2&3
-                  :If ∧/(2↑cmd)∊⎕D
-                      z←∧\((≢cmd)↑1 1)∧cmd∊⎕D,'.'  ⍝ just get the leading digits
-                      range[2]←⍬⍴2⊃⎕VFI z/cmd
-                      cmd←(~z)/cmd
-                      :If 0<≢cmd
-                      :AndIf range[4]←∨/z←∧\cmd∊'.',⎕D
-                          range[2]+←{⍵<1:⍵ ⋄ ⍵×0.1}⍬⍴2⊃⎕VFI(('.'≠⊃cmd)⍴'.'),z/cmd
-                          cmd←(~z)/cmd
-                      :EndIf
-                  :EndIf
-                  range[1]←'-'=⊃cmd
-                  cmd←range[1]↓cmd
-                  :If 0<≢cmd
-                  :AndIf ∨/z←∧\((≢cmd)↑1 1)∧cmd∊⎕D,'.'  ⍝ just get the leading digits
-                      range[3]←⍬⍴(2⊃⎕VFI z/cmd)+⍬⍴0.1×{2⊃⎕VFI'.'~⍨(∧\⍵∊⎕D,'.')/⍵}'0',⍨(~z)/cmd
-                      cmd←(~z)/cmd
-                      :If 0<≢cmd
-                      :AndIf range[5]←∨/z←∧\cmd∊'.',⎕D
-                          range[3]+←{⍵<1:⍵ ⋄ ⍵×0.1}2⊃⎕VFI z/cmd
-                          cmd←(~z)/cmd
-                      :EndIf
-                  :EndIf
-                  range[2]←{⍵[2]:⍵[1] ⋄ ⌊⍵[1]}range[2 4]
-                  range[3]←{⍵[2]:⍵[1] ⋄ 0.999+⌊⍵[1]}range[3 5]
-                  :If range[1]  ⍝ if range was specified
-                      z←l3[;2]{(⍵[1]≤⍺)∧(⍵[2]≥⍺)∨⍵[2]=¯1}1↓range
-                  :ElseIf range[4] ⍝ if . was used in 2
-                      z←(l3[;2])=range[2]  ⍝ version must match exactly
-                  :ElseIf range[2]>0
-                      z←(⌊l3[;2])=range[2]
-                  :Else
-                      ⎕EX'z'
-                  :EndIf
+      :If 0≢dsl
+          :For cmd :In ','(≠⊆⊢),dsl   ⍝ look at one instruction after the next
+              disable←'~'=⊃cmd ⋄ cmd←(∨/'+~'=⊃cmd)↓cmd
+              :If cmd≡⍥⎕C'all'
+                  z←(≢l3)⍴1
               :Else
-                  cmd←1↓cmd
-              :EndIf
-              :If ∨/'_uc'∊⎕C⊃cmd
-                  :If (⎕C⊃cmd)∊'cu'
-                      z←'z'{6::⍵ ⋄ ⍵∧⍎⍺}l3[;4]=⎕C⊃cmd
+                  :If '/'≠⊃cmd
+                      range←0 ¯1 99 0 0 ⍝ range[1]: yes, "-" was used, [2] is start and [3] is end of range, range [4 5]: was a '.' used in the version-spec 2&3
+                      :If ∧/(2↑cmd)∊⎕D
+                          z←∧\((≢cmd)↑1 1)∧cmd∊⎕D,'.'  ⍝ just get the leading digits
+                          range[2]←⍬⍴2⊃⎕VFI z/cmd
+                          cmd←(~z)/cmd
+                          :If 0<≢cmd
+                          :AndIf range[4]←∨/z←∧\cmd∊'.',⎕D
+                              range[2]+←{⍵<1:⍵ ⋄ ⍵×0.1}⍬⍴2⊃⎕VFI(('.'≠⊃cmd)⍴'.'),z/cmd
+                              cmd←(~z)/cmd
+                          :EndIf
+                      :EndIf
+                      range[1]←'-'=⊃cmd
+                      cmd←range[1]↓cmd
+                      :If 0<≢cmd
+                      :AndIf ∨/z←∧\((≢cmd)↑1 1)∧cmd∊⎕D,'.'  ⍝ just get the leading digits
+                          range[3]←⍬⍴(2⊃⎕VFI z/cmd)+⍬⍴0.1×{2⊃⎕VFI'.'~⍨(∧\⍵∊⎕D,'.')/⍵}'0',⍨(~z)/cmd
+                          cmd←(~z)/cmd
+                          :If 0<≢cmd
+                          :AndIf range[5]←∨/z←∧\cmd∊'.',⎕D
+                              range[3]+←{⍵<1:⍵ ⋄ ⍵×0.1}2⊃⎕VFI z/cmd
+                              cmd←(~z)/cmd
+                          :EndIf
+                      :EndIf
+                      range[2]←{⍵[2]:⍵[1] ⋄ ⌊⍵[1]}range[2 4]
+                      range[3]←{⍵[2]:⍵[1] ⋄ 0.999+⌊⍵[1]}range[3 5]
+                      :If range[1]  ⍝ if range was specified
+                          z←l3[;2]{(⍵[1]≤⍺)∧(⍵[2]≥⍺)∨⍵[2]=¯1}1↓range
+                      :ElseIf range[4] ⍝ if . was used in 2
+                          z←(l3[;2])=range[2]  ⍝ version must match exactly
+                      :ElseIf range[2]>0
+                          z←(⌊l3[;2])=range[2]
+                      :Else
+                          ⎕EX'z'
+                      :EndIf
                   :Else
-                      z←'z'{6::⍵ ⋄ ⍵∧⍎⍺}(≢l3)⍴1  ⍝ select all
+                      cmd←1↓cmd
                   :EndIf
-                  cmd←1↓cmd
+                  :If ∨/'_uc'∊⎕C⊃cmd
+                      :If (⎕C⊃cmd)∊'cu'
+                          z←'z'{6::⍵ ⋄ ⍵∧⍎⍺}l3[;4]=⎕C⊃cmd
+                      :Else
+                          z←'z'{6::⍵ ⋄ ⍵∧⍎⍺}(≢l3)⍴1  ⍝ select all
+                      :EndIf
+                      cmd←1↓cmd
+                  :EndIf
+                  :If (⊂cmd)∊'32' '64'
+                      z←'z'{6::⍵ ⋄ ⍵∧⍎⍺}l3[;3]∊2⊃⎕VFI cmd
+                  :EndIf
               :EndIf
-              :If (⊂cmd)∊'32' '64'
-                  z←'z'{6::⍵ ⋄ ⍵∧⍎⍺}l3[;3]∊2⊃⎕VFI cmd
+              :If 0=⎕NC'z'
+                  :Continue
+              :EndIf ⍝ nothing has been selected
+              :If disable
+                  new←new~z/l3[;1]
+              :Else
+                  new∪←z/l3[;1]
               :EndIf
-          :EndIf
-          :If 0=⎕NC'z'
-              :Continue
-          :EndIf ⍝ nothing has been selected
-          :If disable
-              new←new~z/l3[;1]
-          :Else
-              new∪←z/l3[;1]
-          :EndIf
-      :EndFor
+          :EndFor
+      :ElseIf 'f'=arg.Switch'get'
+          new←objs.id
+      :EndIf
       :If 0≢cmd←arg.Switch'get'
           z←objs.id∊new
-          :Select ⍬⍴cmd
+          :Select ''⍴cmd
           :Case 'x'
               new←z/objs.exe
           :Case 'i'

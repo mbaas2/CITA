@@ -3,7 +3,7 @@
  ⍝ Basically, it performs a test and then call ⎕SE._cita.LogStatus to record the status of that test.
  R←⍬
  :If 17=2 1⊃'.'⎕VFI v←2⊃'.'⎕WG'APLVersion'
-     (⎕←'This test fails intentionally on v16 - and was executed against Version',v)⎕SE._cita.LogStatus'err'
+     (⎕←'This test fails intentionally on v16 - and was executed against Version',v)⎕SE._cita._LogStatus'fail'
  :Else
-     (⎕←'No problem with version ',v)⎕SE._cita.LogStatus'ok'
+     (⎕←'No problem with version ',v)⎕SE._cita._LogStatus'ok'
  :EndIf

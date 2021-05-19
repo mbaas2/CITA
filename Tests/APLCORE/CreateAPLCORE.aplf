@@ -1,0 +1,7 @@
+∇ R←CreateAPLCORE
+⍝ this function creates an APLCORE.
+⍝ it is used to test CITA's handling of such exceptions...
+
+       1300⌶999
+
+∇

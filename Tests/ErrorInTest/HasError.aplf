@@ -1,0 +1,4 @@
+﻿ {R}←HasError sink;v
+ ⍝ Tests how CITA deals with APL-errors in a testfn
+ R←⍬
+ ∘∘∘

@@ -1,13 +1,12 @@
 /********************************************************************************************
 
-            Testing CITA
+            Testing CITA's handling of errors in the executed code
 
  ********************************************************************************************/
 {
     Tests: [{
-        id: "FailOn17Only",
-            "Test": "FailOn17Only.aplf",
-            "DyalogVersions": "17."
+        id: "HasError",
+            "Test": "HasError.aplf"
         }
     ]
 }

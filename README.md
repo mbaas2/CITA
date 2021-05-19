@@ -11,4 +11,4 @@ ask for any details that are not obvious.
 ## Installation
 
 Requires v18. If you want to use ]DTest or the ]GetTools4CITA User commands,
-you need the CITA-Branch of [DBuildTest](https://github.com/Dyalog/DBuildTest).
+you need [DBuildTest](https://github.com/Dyalog/DBuildTest) v1.46 onwards!

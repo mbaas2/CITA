@@ -5,9 +5,8 @@
  ********************************************************************************************/
 {
     Tests: [{
-        id: "FailOn17Only",
-            "Test": "FailOn17Only.aplf",
-            "DyalogVersions": "17."
+        id: "Classic",
+            "Test": "NotCompatible.aplf"
         }
     ]
 }

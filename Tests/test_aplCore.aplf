@@ -1,0 +1,13 @@
+﻿ r←test_aplCore
+ r←''
+ :Trap 0
+     res←⎕SE.CITA.API.ExecuteLocalTest ##.TESTSOURCE,'APLCORE/CITA.json5'
+ :Else
+     →0 Because'An APL error was trapped running API.ExecuteLocalTest',∊(⎕UCS 13),↑⎕DM
+ :EndTrap
+ :If 1 Check res.rc
+     →0 Because'APLCORE-Tests did not end with returncode 1 indicating failure' ⋄ :EndIf
+ :If 2 2 Check⍴res.testMat
+     →0 Because'Dimensions of testMat not as expected' ⋄ :EndIf
+ :If 'c'Check v←res.testMat[2;2]
+     →0 Because('testMat did not indicate aplcore returning "c" but had "',v,'" instead') ⋄ :EndIf

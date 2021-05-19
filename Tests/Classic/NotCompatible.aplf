@@ -1,0 +1,4 @@
+R←NotCompatible;foo
+⍝ this will not load into Classic interpreters because of the incompatible "…"
+R←''
+⎕se._cita.Success R

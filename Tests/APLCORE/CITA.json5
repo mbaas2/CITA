@@ -1,0 +1,5 @@
+{
+    "Tests": {
+        "Test": "CreateAPLCORE.aplf" , //  just checking how CITA handles APLCOREs while testing...
+    }
+}

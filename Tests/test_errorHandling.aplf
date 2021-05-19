@@ -1,0 +1,9 @@
+﻿ r←test_errorHandling
+ r←''
+ res←⎕SE.CITA.API.ExecuteLocalTest ##.TESTSOURCE,'ErrorInTest/CITA.json5'
+ :If 1 Check res.rc
+     →0 Because'APLCORE-Tests did not end with returncode 1 indicating failure' ⋄ :EndIf
+ :If 2 2 Check⍴res.testMat
+     →0 Because'Dimensions of testMat not as expected' ⋄ :EndIf
+ :If 'e'Check v←res.testMat[2;2]
+     →0 Because('testMat did not indicate APL error using "e" but returned "',v,'"') ⋄ :EndIf
