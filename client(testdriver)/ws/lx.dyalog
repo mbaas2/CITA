@@ -1,4 +1,4 @@
-﻿ lx;v;Env;subj;ext;r;z;s;cmd;y;log;randomstring;wsFullReport;⎕RL;⎕ML;⎕IO;rc;off;path
+﻿ lx;path;v;Env;subj;ext;r;z;s;cmd;y;log;randomstring;wsFullReport;⎕RL;⎕ML;⎕IO;rc
  ⍝ OFF with returncode 42: all is well, 43: error, 44: WS FULL
  NL←⎕UCS 13
  ⎕RL←2
@@ -6,7 +6,6 @@
  ⎕IO←1
  rc←42  ⍝ returncode if everything was ok (errors will set rc to 43, ws FULL=44)
  randomstring←(⎕A,⎕D)[?32⍴36]
- off←1
  ⎕←'┌─────────────────────────────────────────────────────────────────────┐'
  ⎕←'↓↓↓ This output indicates the start of a new session                ↓↓↓'
  ⎕←'↓↓↓ so that you can see what happened while executing your code...  ↓↓↓'
@@ -32,7 +31,7 @@
  wsFullReport←(500⍴⊂'PlaceHolder'),[1.5]1000000     ⍝ reserve a few bytes for our wsfullreport - just in case...
 ⍝ set up ⎕SE._cita
  {}⎕SE.UCMD'GetTools4CITA'
- :If udebug←'on'≡⎕SE._cita.lc Env'UDEBUG'
+ :If 'on'≡⎕SE._cita.lc Env'UDEBUG'
      {}⎕SE.UCMD'UDEBUG ON'  ⍝ only during testing...
  :EndIf
 
@@ -120,12 +119,11 @@ End:
      ⎕←'No problems running user code'
      ⎕SE._cita.Success''
  :ElseIf 0<⎕SE._cita.tally subj←Env'RunUCMD'
-     :Trap udebug↓0
+     :Trap 0
          ⎕←']',subj
          ⎕SE.UCMD subj
      :Else
          subj HandleError ⎕←'Error executing UCMD',NL,∊⎕DM,¨⊂NL
-         off←0
      :EndTrap
  :Else
      ⎕←'No idea why you called me! :('
@@ -144,8 +142,5 @@ Done:
  :Else
      ⎕←'*** Error while attempting to write sessionlog to a file:'
      ⎕←⎕DM
-     off←0
  :EndTrap
- :If off
-     ⎕OFF rc
- :EndIf
+ ⎕OFF rc
