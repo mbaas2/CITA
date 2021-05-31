@@ -1,0 +1,232 @@
+:namespace GitHub
+    split←(≠⊆⊢)
+    DefaultOrg←'Dyalog'
+    HomeDir←'./'
+    gat←''          ⍝ GitHub API token - see Init
+
+    :section Public fns
+    ∇ R←{fields}ListRepos org;url
+      :If 0=⎕NC'fields' ⋄ fields←⍬ ⋄ :EndIf   ⍝ 'id' 'name' 'private' 'description' 'trees_url' 'ssh_url' was prior default
+      :If 0=≢org ⋄ org←DefaultOrg ⋄ :EndIf
+      url←'https://api.github.com/orgs/',org,'/repos'
+      R←fields GetPagedResults url
+    ∇
+
+    ∇ R←{fields}ListCommits org_repo;url;org;repo
+      (org repo)←¯2↑(⊂DefaultOrg),⊆org_repo
+      :If 0=≢org ⋄ org←DefaultOrg ⋄ :EndIf
+      :If 0=⎕NC'fields' ⋄ fields←⍬ ⋄ :EndIf
+      url←'https://api.github.com/repos/',org,'/',repo,'/commits'
+      R←fields GetPagedResults url
+    ∇
+⍝ maybe we need a more general ListSomething fn?
+
+    ∇ R←{fields}ListBranches org_repo;url;org;repo
+      (org repo)←¯2↑(⊂DefaultOrg),⊆org_repo
+      :If 0=≢org ⋄ org←DefaultOrg ⋄ :EndIf
+      :If 0=⎕NC'fields' ⋄ fields←⍬ ⋄ :EndIf
+      url←'https://api.github.com/repos/',org,'/',repo,'/branches'
+      R←fields GetPagedResults url
+    ∇
+
+    ∇ R←{fields}ListFiles org_repo_sha;url;org;repo;sha;opts
+      (org repo sha)←¯3↑(⊂DefaultOrg),⊆org_repo_sha
+      :If 0=⎕NC'fields' ⋄ fields←⍬ ⋄ :EndIf
+      :If 0=≢org ⋄ org←DefaultOrg ⋄ :EndIf
+      url←'https://api.github.com/repos/',org,'/',repo,'/git/trees/',sha
+      opts←⎕NS'' ⋄ opts.fields←fields ⋄ opts.params←1 2⍴'recursive' '1'
+      R←opts GetPagedResults url
+    ∇
+
+    ∇ R←{fields}ListTags org_repo;url;org;repo;sha
+      (org repo)←¯2↑(⊂DefaultOrg),⊆org_repo
+      :If 0=⎕NC'fields' ⋄ fields←⍬ ⋄ :EndIf
+      :If 0=≢org ⋄ org←DefaultOrg ⋄ :EndIf
+      url←'https://api.github.com/repos/',org,'/',repo,'/tags'
+      R←fields GetPagedResults url
+    ∇
+
+    ∇ R←{fields}ListReleases org_repo;url;org;repo;sha
+      (org repo)←¯2↑(⊂DefaultOrg),⊆org_repo
+      :If 0=⎕NC'fields' ⋄ fields←⍬ ⋄ :EndIf
+      :If 0=≢org ⋄ org←DefaultOrg ⋄ :EndIf
+      url←'https://api.github.com/repos/',org,'/',repo,'/releases'
+      R←fields GetPagedResults url
+    ∇
+
+
+
+    ∇ (R msg)←target RetrieveFile url;h;res;dir;tie
+  ⍝ get specified file and save it as ⍺
+  ⍝ R indicates success (=0) or failure (=1)
+  ⍝ msg either has the fully qualified filename or the error-msg.
+      R←1
+      h←_gethc url
+      :If 0=(res←h.Run).rc
+          msg←target←∊1 ⎕NPARTS target
+          :If ~⎕NEXISTS dir←1⊃⎕NPARTS target
+              3 ⎕MKDIR dir
+          :EndIf
+          1 ⎕NDELETE target
+⍝          tie←target ⎕NCREATE 0
+ ⍝         res.Data ⎕NAPPEND tie,
+ ⍝         ⎕NUNTIE tie
+          :If 'application/octet-stream'≡'Content-Type'{2⊃⍵[⍵[;1]⍳⊂⍺;]}res.Headers
+              tie←target ⎕NCREATE 0
+              res.Data ⎕NAPPEND tie   ⍝ octets are just written as bytes ;)
+              ⎕NUNTIE tie
+              R←0
+          :Else                       ⍝ anything else will be ⎕NPUT
+              (⊂res.Data)⎕NPUT target
+              R←0
+          :EndIf
+      :EndIf
+      :If 0≠res.rc ⋄ msg←'Error: rc≠0!',(⎕UCS 13),⍕res ⋄ :EndIf
+    ∇
+
+
+    ∇ R←{opts}GetPagedResults url;h;j;lnk;res;z;data;x;fields;Get;Params
+    ⍝ objects can be retrieved by specifying objname.field, i.e. "commit.author.date"
+      fields←'' ⋄ Params←⍬
+      Get←{2 6 11::2⊃⍵ ⋄ ⍺⍎1⊃⍵}  ⍝ (ns or var)Get (param dflt)  - if it's a var or undefined, return dflt - otherwise its value
+      Params←opts Get'params'⍬
+      fields←opts Get'fields'({2=⎕NC ⍵:⍎⍵ ⋄ ''}'opts')
+      h←Params _gethc url
+      z←0
+      :While 0=(res←h.Run).rc
+          j←⎕JSON res.Data
+          :If res.HttpStatus≠200
+              ('Error: HttpStatus≠0!',(⎕UCS 13),⍕{6::'' ⋄ ⍵.Data.message}j)⎕SIGNAL 11
+          :EndIf
+          :If j≡⍬ ⋄ →≢R←(0,⍴fields)⍴0 ⋄ :EndIf   ⍝ exit early if empty result
+          :If 0=⎕NC'fields'
+          :OrIf 0=≢fields
+              fields←{(0=10|⎕DR¨⍵.⍎¨nl)/nl←⍵.⎕NL ¯2}1⊃,j
+          :Else
+              fields←⊆fields
+          :EndIf
+          :If 0=≡j
+              x←j⍎¨fields
+              :If 3=≡x
+                  data←⍉↑x
+              :Else
+                  data←,[0.5]x
+              :EndIf
+          :Else ⋄ data←↑j{⍺{6::⎕NULL ⋄ ⍺⍎⍵}¨,⍵}¨⊂fields
+          :EndIf
+          :If 0=⎕NC'R' ⋄ R←fields⍪data ⋄ :Else ⋄ R⍪←data ⋄ :EndIf
+          :If 0<≢lnk←⊃res.Headers{3::⊂'' ⋄ ⍺[⍺[;1]⍳⊂⍵;2]}'Link'  ⍝ if we find a "Link"-header, we need to page...
+              lnk←','split lnk
+              :If ∨/∊z←∨/¨'rel="next"'∘⍷¨lnk
+                  h.URL←⊃('<([^>]*)>.*'⎕S'\1')(⍸z)⊃lnk
+              :EndIf
+          :Else
+              z←0
+          :EndIf
+      :Until ~1∊z
+      :If 0≠res.rc ⋄ ('Error: rc≠0!',(⎕UCS 13),⍕res)⎕SIGNAL 11 ⋄ :EndIf
+    ∇
+
+    ∇ h←{Params}_gethc url
+      :If 0=⎕NC'HttpCommand' ⋄ Init ⋄ :EndIf
+      h←⎕NEW HttpCommand
+      h.Headers←↑('Authorization'('token ',gat))('Accept' 'application/vnd.github.v3.raw ')
+      h.URL←url
+      :If 2=⎕NC'Params' ⋄ h.Params←Params ⋄ :EndIf
+    ∇
+
+    ∇ h←{Params}_gethcj url
+      :If 0=⎕NC'HttpCommand' ⋄ Init ⋄ :EndIf
+      h←⎕NEW HttpCommand
+      h.Headers←↑('Authorization'('token ',gat))('Accept' 'application/vnd.github.v3+json')
+      h.URL←url
+      :If 2=⎕NC'Params' ⋄ h.Params←Params ⋄ :EndIf
+    ∇
+
+    ∇ R←lst SortListBy field_asc;sort;s;field;asc;val
+    ⍝ sort a list by one and one field only in ascending or descending order (if asc=0 or elided)
+      (field asc)←2↑(⊆field_asc),0
+      val←1↓lst[;lst[1;]⍳⊂field]  ⍝ values of sort field
+      sort←'⍋⍒'[2-asc]          ⍝ desired sort
+      s←⍎sort,'val'              ⍝ do it
+      R←lst[1,1+s;]              ⍝ assign sorted list, keeping coltitles on top
+    ∇
+
+    ∇ file Unzip to
+       ⍝ not sure this belongs into a GitHub-ns
+      :Select ⎕C 3↑1⊃'.'⎕WG'aplversion'
+      :Case 'win'
+          {}⎕CMD'tar -xf ',file,' -C ',to  ⍝ abrudz!
+      :CaseList 'lin' 'mac'
+          {}⎕SH'unzip ',file,' -d ',to
+      :EndSelect
+    ∇
+
+
+    ∇ R←HasCITA org_repo;org;repo;sha;commits;files
+       ⍝ checks if given repo has a CITA.json-file and returns boolean result
+      (org repo)←¯2↑(⊂DefaultOrg),⊆org_repo
+      commits←'sha'ListCommits org repo
+      sha←1⊃commits[2;]  ⍝ find last commit
+      files←'tree.path' 'tree.url'ListFiles org repo sha
+      R←∨/('cita.json' 'cita.json5')∊⎕C files[;1]
+    ∇
+
+
+    ∇ r←path GetFilesFromSHA org_repo_sha;x
+      r←0
+      path,←(~∨/'\/'∊¯1↑path)/'/'  ⍝ ensure path ends with /
+      :If ⎕NEXISTS path ⋄ 3 ⎕MKDIR path ⋄ :EndIf
+      (org repo)←¯2↑(⊂DefaultOrg),{(2⌊≢⍵)↑⍵}⊆org_repo_sha
+      :If 2=⍴org_repo_sha
+          commits←'sha'ListCommits org repo
+          sha←1⊃commits[2;]  ⍝ find last commit
+      :Else
+          sha←3⊃org_repo_sha
+      :EndIf
+      url←url←'https://api.github.com/repos/',org,'/',repo,'/git/trees/',sha
+      x←(mns('params'('recursive' '1'))('fields'('tree.path' 'tree.url' 'tree.type')))GetPagedResults url
+      :For rec :In 1↓↓x
+ ⍝ data←HttpCommand.Get 2⊃rec
+          :If 'tree'≡3⊃rec
+              3 ⎕MKDIR path,1⊃rec
+          :Else
+              :If 0≠⊃f←(path,1⊃rec)RetrieveFile 2⊃rec
+                  ⎕←f
+                  ∘∘∘  ⍝ something went wrong - no idea why etc. need to diagnose when it happens to understand what to do!
+              :Else
+                  r,←f[2]
+              :EndIf
+          :EndIf
+      :EndFor
+     
+    ∇
+    :endsection
+    :section InternalTools
+    ∇ Init;t
+      :If 0=≢gat←2 ⎕NQ'.' 'GetEnvironment' 'GitHub_API_Token'   ⍝ preferred approach to pass API Token is via EnvVar, CmdLine or .dcfg
+          ⎕←'Could not find envvar "GitHub_API_Token" - please make sure it is set (in env or .dcfg) before using this function!'
+          ⎕signal 11
+      :EndIf
+      :If 0<≢t←5179⌶1⊃⎕SI
+          HomeDir←1⊃⎕NPARTS 4⊃t
+      :EndIf
+      ⎕SE.SALT.Load'HttpCommand.dyalog'
+    ∇
+
+
+ ⍝ from dfns:
+      mns←{                                         ⍝ Make NS from association list ⍵.
+          ⍺←⎕NS''                                   ⍝ default new space.
+          0=⍴,⍵:⍺                                   ⍝ list exhausted: finished.
+          name class value←{(1↑⍵),¯2↑2,1↓⍵}⎕IO⊃,⊆⍵  ⍝ first triple.
+          class=2:⍺ ∇ 1↓⍵⊣name ⍺.{⍎⍺,'←⍵'}value     ⍝ var: assign.
+          class∊3 4:⍺ ∇ 1↓⍵⊣⍺.⎕FX value             ⍝ fn or op: fix.
+          class=9:⍺ ∇ 1↓⍵⊣name ∇ ⍺.{                ⍝ space: recursively process,
+              (⍎⍺,'←⎕NS ⍬')⍺⍺ ⍵                     ⍝   in new sub-space,
+          }value                                    ⍝   the sub-list.
+          'Eh?'⎕SIGNAL 11                           ⍝ unrecognised class: abort.
+      }
+
+    :endsection
+:endnamespace

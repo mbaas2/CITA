@@ -1,11 +1,11 @@
  args←_Parse args;findLine;prs;split1;parser;lvl
  :If ''=⍥⎕DR args
      :If ∨/'-?'⍷args    ⍝ if user asked for Help (possibly for API-Calls!)
-         lvl←.1+≢⊃('-(\?*)'⎕S'\1')args  ⍝ level of help that was asked for....
+         lvl←0.1+≢⊃('-(\?*)'⎕S'\1')args  ⍝ level of help that was asked for....
          :If 0=⎕NC'UCMD._Help'
              API._InitUCMDs
          :EndIf
-         args←(lvl-1) UCMD.Help 2⊃⎕SI
+         args←(lvl-1)UCMD.Help 2⊃⎕SI
          →0
      :EndIf
 
@@ -17,11 +17,12 @@
 
      split1←{i←⍵⍳⍺ ⋄ (⍵[⍳i-1])(i↓⍵)}
      prs←findLine'Parse'
-     :If 0=≢prs
-         :If ∨/'-ucmd=0'⍷args  ⍝ API-Calls are recognizeable
-             prs←1⊃⌽(⊂''),findLine'AParse'
+     :If 0=≢prs                ⍝ if no Parse-entry was found
+     :OrIf ∨/'-ucmd=0'⍷args    ⍝ of if we're dealing with an API call
+         :If ∨/'-ucmd=0'⍷args  ⍝ for API-Calls the modifier -ucmd=0 must be set
+             prs←1⊃⌽(⊂''),findLine'AParse'   ⍝ use parsing rules for API
          :Else
-             prs←1⊃⌽(⊂''),findLine'UParse'
+             prs←1⊃⌽(⊂''),findLine'UParse'   ⍝ otherwise use UCMD-Parsing
          :EndIf
      :Else
          prs←1⊃prs
