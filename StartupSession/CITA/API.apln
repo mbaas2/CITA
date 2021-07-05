@@ -3,7 +3,7 @@
     ⎕ml←1
     ⎕io←1
     Timeout←180 ⍝ seconds before we consider a job to have timedout
-    DEBUG←1
+    DEBUG←⎕se.SALTUtils.DEBUG×0   ⍝ only allow debugging if we're in UCMD-DEBUG mode
     If←/⍨   ⍝  AB's father
 
     ∇ (R log)←APLVersions arg;k;i;keys;int;exe;bak;cnt;file;json;old;doc;platform;fld;cJSON;z1;z2;t;old∆;k2;lglv;hlp;args;res;updated
@@ -39,6 +39,7 @@
 ⍝A?: -compact=2: two-element vector with ids of enabled & disabled interpreters
      
 ⍝ the "standard"-header for the API-Functions takes care of providing help when the fn is called directly
+
       _InitUCMDs  ⍝ yeah, this is ambigous - but the API-fns also rely on ##.Home being set up. May find a better way to name or address this...
       :If ''=⍥⎕DR arg                              ⍝ if arg is char,
           arg←arg{~∨/⍵⍷⎕C ⍺:⍺,' ',⍵ ⋄ ⍺}'-ucmd=0'  ⍝ this is an API-Call - so be sure to add the -ucmd=0-modifier if we don't see it
@@ -281,10 +282,9 @@
       res←¯1  ⍝ res=¯1 indicates no test were run!
       Log←''
       arg←##._Parse arg  ⍝ ensure its a parsed arg...
-     
       fl←∊1 ⎕NPARTS(1 ''##._getArg 1 arg)  ⍝ fld=folder, fl=path to a CITA.json
       ('File or directory "',fl,'" not found')⎕SIGNAL(~⎕NEXISTS fl)/700
-      fl,←(1=∊1 ⎕NINFO fl)/('\/'∊⍨⊢/fl)↓'/CITA.JSON'  ⍝ we also accept folders as arg and append the filespec automatically (since we're expecting one specific file anyway)
+      fl,←(1=∊1 ⎕NINFO fl)/('\/'∊⍨⊢/fl)↓'/CITA.JSON*'  ⍝ we also accept folders as arg and append the filespec automatically (since we're expecting one specific file anyway)
      
       fld←1⊃⎕NPARTS fl
       :If ''≡xinO←''##._getArg'workdir'arg
@@ -303,11 +303,12 @@
       showedIO←0   ⍝ when we display test-counts instead of ids, give info about IO=1 (this var ensures we're doing it once only!)
       rcTest←¯1  ⍝ ¯1: no tests executed
       :If (~⎕NEXISTS fl)∨'cita.json'≢9↑⎕C∊1↓⎕NPARTS fl
-          →0⊣(res Log)←700 'CITA.JSON[5] not found'
+          ns.(rc Log)←700 'CITA.JSON[5] not found'
+          →0
       :EndIf
       (rc specsObj lg)←_GetTestSpecs fl
       :If rc≠0
-          (res Log)←701('Error processing specs in "',fl,'": ',⍕lg)
+          ns.(rc Log)←701('Error processing specs in "',fl,'": ',⍕lg)
           →0
       :EndIf
       Log,←lg
@@ -489,7 +490,6 @@
      EndStep:
               res←~(res∊0 ¯1)∧rcTest=0
               :If log≡'' ⋄ log←2⊃R ⋄ :EndIf
-⍝              (⎕LC[1]+1)⎕STOP 1⊃⎕SI
               Log,←⊂(3⍴'·~*'[0 ¯1⍳rcTest]),' ',('#',(⍕cnt),' ',((~showedIO)/' (⎕IO=1) '),{0<≢⍵:'"',⍵,'"'}specs.id),({⍵=0:': success ···' ⋄ ⍵=¯1:': not executed ~~~' ⋄ ': FAILURE (return code = ',(⍕⍵),') ***'}rcTest)
               showedIO←showedIO∨''≡⍥⎕DR specs.id
               :If 0<≢log,jlog
@@ -530,7 +530,6 @@
                       :EndIf
                   :EndFor
                   1 ⎕NDELETE⌽del   ⍝ we try to delete files and folders individually
-⍝                  ⎕TRAP←0 'S' ⋄ ∘∘∘
                   :If 0=≢keep
                       1 ⎕NDELETE xin
                   :EndIf
@@ -583,7 +582,17 @@
       fl←1 ''##._getArg 1 arg
       fl←{'http'≡4↑⎕C ⍵:⍵ ⋄ ∊1 ⎕NPARTS ⍵}fl  ⍝ fld=folder, fl=path to a CITA.json
       sha←''
+      :If 0≡arg._2          ⍝ only one argument - the name of a dyalog-repository
+          arg.(_2←_1)       ⍝ rearrange arguments
+          arg._1←'dyalog'   ⍝ and assign default org
+      :EndIf
+     
       :If 'http'≡⎕C 4↑fl  ⍝ if a URL is given
+          :If ~##.GitHub.HasCITA fl
+              ns.rc←2
+              ns.Log←'Repository ',fl,' does not contain CITA.json[5]'
+              →0
+          :EndIf
           fl←'/'(≠⊆⊢)(7+'s'=5⊃fl)↓fl   ⍝ elements of the URL
           :If 'github.com'≢⎕C 1⊃fl
               ns.rc←1
@@ -614,22 +623,24 @@
                   arg.tag←5⊃fl
               :EndIf
           :EndIf
-      :EndIf
-      :If 0≡arg._2          ⍝ only one argument - the name of a dyalog-repository
-          arg.(_2←_1)       ⍝ rearrange arguments
-          arg._1←'dyalog'   ⍝ and assign default org
+      :Else
+          hasCITA←0
+          :If arg.pull≢0
+              url←'https://api.github.com/repos/',arg._1,'/',arg._2,'/pulls/',⍕arg.pull
+              hasCITA←##.GitHub.HasCITA url
+          :EndIf
+          :If ~hasCITA
+          :AndIf ##.GitHub.HasCITA arg.(_1 _2)
+              ns.rc←2
+              ns.Log←'Repository ',(∊arg.(_1'/',_2)),' does not contain CITA.json[5]'
+              →0
+          :EndIf
       :EndIf
      
-      :If ~sha ##.GitHub.HasCITA arg.(_1 _2)
-          ∘∘∘
-          ns.rc←2
-          ns.Log←'Repository ',(∊arg.(_1'/',_2)),' does not contain CITA.json[5]'
-      :EndIf
      
 ⍝ create tempdir for stuff downloaded from repo
       xinO←(739⌶0),,('</CITA_Test/>,ZI4,ZI2,ZI2,<_>,ZI2,ZI2,ZI2,</repo/',(arg._1,'-',arg._2),'/>')⎕FMT 1 6⍴⎕TS
       3 ⎕MKDIR xinO
-     
      
       :If 0≢arg.tag
 ⍝ tags come as zipballs and need to be unzipped...
@@ -680,7 +691,7 @@
           :EndIf
           r←xinO ##.GitHub.GetFilesFromSHA arg.(_1 _2 commit)
           :If 0=1⊃r       ⍝ if that ended ok
-          :AndIf ×1<≢r     ⍝ and if we got any files from it
+          :AndIf ×≢2⊃r     ⍝ and if we got any files from it
               wd←1⊃⎕NPARTS ¯1↓1⊃⎕NPARTS ¯1↓xinO
               fl←⊃0(⎕NINFO⍠'Recurse' 2)xinO,'CITA.json5'
      
@@ -689,11 +700,13 @@
               args,←{(0<≢⍵)/' -int',(⍵≢1)/'=',⍵}''arg.Switch'int'
               args,←' -ucmd=0 -workdir="',wd,'"'
               ns←ExecuteLocalTest(1⊃fl),args   ⍝ pass-through the result...
+              ⎕JSON ns
           :EndIf
       :EndIf
      
      
      Exit:
+      ⎕JSON ns
     ∇
 
 
@@ -768,7 +781,6 @@
       :If isDTest
           :If ⎕NEXISTS TestLog
               lg←1⊃⎕NGET TestLog
-              ⎕TRAP←0 'S' ⋄ ∘∘∘
               :If ∨/'WS FULL'⍷lg
                   ''⎕NPUT((∊2↑⎕NPARTS 1⊃StatusFiles),'.wsfull'
                   WSFULL←1
@@ -871,6 +883,7 @@
     ∇
 
       _FoldJson←{
+          0::⎕DMX.Message ⎕SIGNAL ⎕EN
           Apl←0 ⎕JSON⍠'Dialect' 'JSON5'⊢
           Json←1 ⎕JSON⍠'Compact' 0⊢
           FoldMembers←'^.*[^\\]":'⎕R{':',⍨Json ⎕C Apl ¯1↓⍵.Match}
