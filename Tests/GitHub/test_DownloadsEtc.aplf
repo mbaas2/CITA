@@ -1,0 +1,84 @@
+ r←test_DownloadsEtc nul;files;sha;url;R2;R21;files1;files2;diff1;res;t1;t2;r1
+
+ r←⍬
+ R2←'commit.author.date' 'sha' 'url'GitHub.ListCommits'Dyalog' 'DBuildTest'
+ R21←R2 GitHub.SortListBy'commit.author.date'    ⍝ sort by date
+ sha←2⊃R2[2;]  ⍝ find last commit
+
+ files←'tree.path' 'tree.url'GitHub.ListFiles'' 'DBuildTest'sha
+
+ :If ~(⊂'cita.json5')∊⎕C files[;1]
+     →fail Because'CITA.json5 not found in repository DBuildTest' ⋄ :EndIf
+
+
+ :If 1 Check GitHub.HasCITA'DBuildTest'
+     →fail Because'"HasCITA" could not confirm DBuildTest has CITA.json (which we checked before).' ⋄ :EndIf
+
+ :If 1 Check GitHub.HasCITA'https://github.com/Dyalog/DBuildTest'
+     →fail Because'"HasCITA" could not confirm DBuildTest has CITA.json (when accessing repo via URL).' ⋄ :EndIf
+
+ :If 0 Check GitHub.HasCITA'https://github.com/Dyalog/DBuildTest/commit/1cead7af86cc0033782f8207da1711d735e18a97'
+     →fail Because'Found CITA in DBuildTest when accessing a commit that did not have it (yet).' ⋄ :EndIf
+
+ :If 1 Check GitHub.HasCITA'https://github.com/Dyalog/DBuildTest/tree/CITA'   ⍝ try CITA-branch
+     →fail Because'Found CITA in DBuildTest when accessing a branch that had it.' ⋄ :EndIf
+
+ :If 1 Check GitHub.HasCITA'https://api.github.com/repos/Dyalog/DBuildTest/branches/CITA'   ⍝ try CITA-branch
+     →fail Because'Found CITA in DBuildTest when accessing a branch that had it.' ⋄ :EndIf
+
+ :If 0 Check GitHub.HasCITA'https://github.com/mbaas2/DBuildTest/pull/1'
+     →fail Because'Found CITA in DBuildTest when accessing a PR that did not have it.' ⋄ :EndIf
+
+
+ url←((⎕C files[;1])⍳⊂'cita.json5')⊃files[;2]
+ 1 ⎕NDELETE tmpPath,'CITA.json5'
+ :If 0 Check z←⊃file←(tmpPath,'CITA.json5')GitHub.RetrieveFile url
+     →fail Because'Retrieving CITA.json5 did not end with status 0' ⋄ :EndIf
+
+⍝ Scenario: a file was commited and removed with next commit. Can we retrieve repo as it was when file was committed?
+      ⍝co←ListCommits'mbaas2' 'CITA'
+ files1←'tree.path' 'tree.url'GitHub.ListFiles'mbaas2' 'CITA' '7b709c'   ⍝ state of repo when file "Temporary.md" was committed. Note that will gives us the state of the repo at that stage! :)
+ files2←'tree.path' 'tree.url'GitHub.ListFiles'mbaas2' 'CITA' '5f8ec3'   ⍝ earlier state of repo when this file did not exist
+ diff1←(~files1[;1]∊files2[;1])⌿files1
+
+ :If 2 Check≢diff1   ⍝ one file should differ between these commits (plus the GitHub-folder, too)
+     →fail Because'Did not find exactly 1 different file (andf 1 folder) comparing two known commits' ⋄ :End
+
+ :If 0 Check 1⊃res←(tmpPath,3⊃,diff1)GitHub.RetrieveFile 4⊃,diff1
+     →fail Because'Retrieving file ',(3⊃diff1),' did not end with returncode 0 but: ',⍕res ⋄ :End
+
+ b←'name' 'commit.url'GitHub.ListBranches'' 'DBuildTest'
+
+ t1←'name' 'commit.url' 'zipball_url'GitHub.ListTags'' 'TamStat-App'
+ :If 1 Check 30≤≢t1
+     →fail Because'Did not find at least 30 tags on repository TamStat-App' ⋄ :EndIf
+
+ t2←'name' 'commit.url' 'zipball_url'GitHub.ListTags'mbaas2' 'CITA'
+ :If ##.verbose
+     ⎕←'Found ',(⍕≢t2),' tags on mbaas/CITA'
+ :EndIf
+
+ :If 1 Check 2≤≢t2
+     →fail'Did not find at least 2 tags on mbaas2/CITA' ⋄ :EndIf
+
+ r1←'tag_name' 'published_at' 'zipball_url' 'name' 'body'GitHub.ListReleases'' 'TamStat-App'
+ r1←r1 GitHub.SortListBy'published_at'    ⍝ sort releases by date (descending order)
+ url←3⊃r1[2;]   ⍝ zipball_url
+
+ :If 0 Check⊃res←(t←tmpPath,'tamstat.zip')GitHub.RetrieveFile url
+     →fail Because'Download of latest TamStat-release to ',(2⊃t),' did not end with returncode 0 but: ',⍕res ⋄ :End
+
+
+ t←tmpPath,'CITA'
+ 3 ⎕MKDIR t
+ nul←t GitHub.GetFilesFromSHA'mbaas2' 'CITA' '7b709c49560d5a6d02bf399c01d6f08ae49e67f0'
+ :If 1 Check ⎕NEXISTS t,'/CITA.json5'
+     →fail Because'GetFilesFromSHA did not retrieve file CITA.json5' ⋄ :EndIf
+
+ :If 1 Check ⎕NEXISTS t,'/Tests/GitHub/Temporary.md'
+     →fail Because'GetFilesFromSHA did not retrieve file Temporary.md' ⋄ :EndIf
+
+
+
+ →0
+fail:

@@ -1,0 +1,25 @@
+ R←test_GettingVariousLists sink;R1;look4;R2;R21;sha
+ R←''
+ R1←'name'GitHub.ListRepos'Dyalog'
+      ⍝ names of some sample repos to look for (both public and private!)
+ look4←'MiServer' 'DUI' 'DBuildTest' 'isolate' 'library-conga' 'ToolsQA' 'TamStat-App'
+ :If 0∊z←look4∊R1[;1]
+     →fail Because'Did not find expected repositories ',(~z)/look4 ⋄ :EndIf
+
+
+
+ R2←'commit.author.date' 'sha' 'url'GitHub.ListCommits'Dyalog' 'DBuildTest'
+ :If 0∊⍴R2
+     →fail Because'Did not get any commits from DBuildTest' ⋄ :EndIf
+
+
+
+ R21←R2 GitHub.SortListBy'commit.author.date'    ⍝ sort by date
+ sha←2⊃R2[2;]  ⍝ find last commit
+
+ :If 'ff3e2b740314109c7775369467b1c831cf89be1f'Check 2⊃R21[≢R21;]
+     →fail Because'First commit to DBuildTest did not have expected sha!' ⋄ :EndIf
+ →0
+
+
+fail:

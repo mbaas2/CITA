@@ -1,5 +1,4 @@
 ﻿:namespace GitHub
-    split←(≠⊆⊢)
     DefaultOrg←'Dyalog'
     HomeDir←'./'
     gat←''          ⍝ GitHub API token - see Init
@@ -77,6 +76,7 @@
               ⎕NUNTIE tie
               R←0
           :Else                       ⍝ anything else will be ⎕NPUT
+              ⍝ ⎕←'Content-Type'{⍵[⍵[;1]⍳⊂⍺;]}res.Headers
               (⊂res.Data)⎕NPUT target
               R←0
           :EndIf
@@ -84,16 +84,13 @@
       :If 0≠res.rc ⋄ msg←'Error: rc≠0!',(⎕UCS 13),⍕res ⋄ :EndIf
     ∇
 
-    ∇ (R msg)←target RetrieveBlob url;h;res;dir;tie
+    ∇ (R msg)←target RetrieveBlob url;h;res;dir;tie;t
   ⍝ get specified file and save it as ⍺
   ⍝ R indicates success (=0) or failure (=1)
   ⍝ msg either has the fully qualified filename or the error-msg.
       R←1
       h←_gethc('https://api.github.com/repos/',org,'/',repo,'/git/blobs/',url)('Accept' 'application/vnd.github.v3+json')
       :If 0=(res←h.Run).rc
-          ⎕←'target=',target
-          ⎕←'url=',url
-⍝          (⎕LC[1]+1)⎕STOP 1⊃⎕SI
           msg←target←∊1 ⎕NPARTS target
           :If ~⎕NEXISTS dir←1⊃⎕NPARTS target
               3 ⎕MKDIR dir
@@ -112,7 +109,12 @@
                   j←⎕JSON res.Data
                   :If 2=⎕NC'j.encoding'
                   :AndIf 'base64'≡j.encoding
-                      (HttpCommand.Base64Decode j.content)⎕NPUT target
+                      ⍝ (HttpCommand.Base64Decode j.content)⎕NPUT target
+                      ⍝ see email MB from July 9th, 2021
+                      1 ⎕NDELETE target
+                      t←target ⎕NCREATE 0
+                      (⎕UCS base64 j.content)⎕NAPPEND t
+                      ⎕NUNTIE t
                   :Else
                       ⎕←(⎕JSON⍠'Compact' 0)j
                       ∘∘∘⍝ found no "encoding" in j
@@ -140,27 +142,49 @@
           :If res.HttpStatus≠200
               ('Error: HttpStatus≠0!',(⎕UCS 13),⍕{6::'' ⋄ ⍵.Data.message}j)⎕SIGNAL 11
           :EndIf
-          :If j≡⍬ ⋄ →≢R←(0,⍴fields)⍴0 ⋄ :EndIf   ⍝ exit early if empty result
+          :If j≡⍬
+              :If 0=⎕NC'R'
+                  R←(0,⍴fields)⍴0
+              :EndIf
+              →0
+          :EndIf   ⍝ exit early if empty result
           :If 0=⎕NC'fields'
           :OrIf 0=≢fields
               fields←{(0=10|⎕DR¨⍵.⍎¨nl)/nl←⍵.⎕NL ¯2}1⊃,j
           :Else
               fields←⊆fields
           :EndIf
-          :If 0=≡j
-              x←j{6::'' ⋄ ⍺⍎⍵}¨fields
-              :If 3=≡x
-                  data←⍉↑x
+          :If 2>≡j
+              :If 1=≢j
+                  x←j{6::'' ⋄ ⍺⍎⍵}¨fields
               :Else
-                  data←,[0.5]x
+                  x←(,j){⍺{6::'' ⋄ ⍺⍎⍵}¨⍵}¨⊂fields
               :EndIf
-          :Else ⋄ data←↑j{⍺{6::⎕NULL ⋄ ⍺⍎⍵}¨,⍵}¨⊂fields
+              :If 1=≢j
+                  :If 3=≡x
+                      data←⍉↑x
+                  :Else
+                      data←,[0.5]x
+                  :EndIf
+              :Else
+                  :If 3=≡x
+                      data←↑x
+                  :Else
+                      data←,[1.5]x
+                  :EndIf
+              :EndIf
+          :Else
+              data←↑j{⍺{6::⎕NULL ⋄ ⍺⍎⍵}¨,⍵}¨⊂fields
           :EndIf
           :If (⊂'commit')∊data
               ∘∘∘
           :EndIf
-     
-          :If 0=⎕NC'R' ⋄ R←fields⍪data ⋄ :Else ⋄ R⍪←data ⋄ :EndIf
+          data←(2↑(⍴data),1)⍴data   ⍝ ensure it is a matrix
+          :If 0=⎕NC'R'
+              R←fields⍪data
+          :Else
+              R⍪←data
+          :EndIf
           :If 0<≢lnk←⊃res.Headers{3::⊂'' ⋄ ⍺[⍺[;1]⍳⊂⍵;2]}'Link'  ⍝ if we find a "Link"-header, we need to page...
               lnk←','split lnk
               :If ∨/∊z←∨/¨'rel="next"'∘⍷¨lnk
@@ -196,14 +220,6 @@
       :If 2=⎕NC'Params' ⋄ h.Params←Params ⋄ :EndIf
     ∇
 
-    ∇ h←{Params}_gethcj url
-      :If 0=⎕NC'HttpCommand' ⋄ Init ⋄ :EndIf
-      h←⎕NEW HttpCommand
-      h.Headers←↑('Authorization'('token ',gat))('Accept' 'application/vnd.github.v3+json')
-      h.URL←url
-      :If 2=⎕NC'Params' ⋄ h.Params←Params ⋄ :EndIf
-    ∇
-
     ∇ R←lst SortListBy field_asc;sort;s;field;asc;val
     ⍝ sort a list by one and one field only in ascending or descending order (if asc=0 or elided)
       (field asc)←2↑(⊆field_asc),0
@@ -224,21 +240,45 @@
     ∇
 
 
-    ∇ R←{sha}HasCITA org_repo;org;repo;sha;commits;files
+    ∇ R←{sha}HasCITA org_repo_OR_URL;org;repo;sha;commits;files
        ⍝ checks if given repo has a CITA.json-file and returns boolean result
-      (org repo)←¯2↑(⊂DefaultOrg),⊆org_repo
+      :If 1=≡org_repo_OR_URL
+      :AndIf 'http'≡⍥⎕C 4↑org_repo_OR_URL
+          offset←∨/'api.github.com'⍷org_repo_OR_URL
+      ⍝ → api-URLs seems to have one more level, eg:
+      ⍝       https://api.github.com/repos/dyalog/link/pulls/252
+      ⍝       https://github.com/mbaas2/CITA/pull/2
+     
+          upts←'/'split org_repo_OR_URL  ⍝ http://github.com/Dyalog/CITA/
+          (org repo)←upts[offset+3 4]
+          :If 4<≢upts
+              :Select ⎕C(5+offset)⊃upts
+              :CaseList 'pull' 'pulls'
+                  sha←'merge_commit_sha'GetPagedResults'https://api.github.com/repos/',org,'/',repo,'/pulls/',(offset+6)⊃upts
+                  sha←2⊃,sha
+              :Case 'commit'
+                  sha←(offset+6)⊃upts
+              :CaseList 'tree' 'branches'
+                  sha←'commit.sha'GetPagedResults'https://api.github.com/repos/',org,'/',repo,'/branches/',(offset+6)⊃upts
+                  sha←2⊃,sha
+              :EndSelect
+              ('Can not process selection "',((5+offset)⊃upts),'"')⎕SIGNAL(0=⎕NC'sha')/11
+          :EndIf
+      :Else
+          (org repo)←¯2↑(⊂DefaultOrg),⊆org_repo_OR_URL
+      :EndIf
       :If 0=⎕NC'sha'
       :OrIf 0=≢sha
           commits←'sha'ListCommits org repo
           sha←1⊃commits[2;]  ⍝ find last commit
       :EndIf
       files←'tree.path' 'tree.url'ListFiles org repo sha
-      R←∨/('cita.json' 'cita.json5')∊⎕C⊃files[2;1]
+      R←∨/('cita.json' 'cita.json5')∊⎕C files[;1]
     ∇
 
 
-    ∇ r←path GetFilesFromSHA org_repo_sha;x;url;sha;rec;f;o;p;r;org;repo;commits;rec
-      r←0
+    ∇ (rc filenames)←path GetFilesFromSHA org_repo_sha;x;url;sha;rec;f;o;p;r;org;repo;commits;rec;gitmodules
+      rc←0 ⋄ filenames←⍬
       path,←(~∨/'\/'∊¯1↑path)/'/'  ⍝ ensure path ends with /
       :If ⎕NEXISTS path ⋄ 3 ⎕MKDIR path ⋄ :EndIf
       (org repo)←¯2↑(⊂DefaultOrg),{(2⌊≢⍵)↑⍵}⊆org_repo_sha
@@ -250,7 +290,7 @@
       :EndIf
       url←'https://api.github.com/repos/',org,'/',repo,'/git/trees/',sha
       x←(mns('params'('recursive' '1'))('fields'('tree.path' 'tree.url' 'tree.type' 'tree.sha')))GetPagedResults url
-      :For rec :In ↓[1](↑⍣(2<|≡x))x[2;]   ⍝ ↓[1]↑x[2;]
+      :For rec :In 1↓↓x
  ⍝ data←HttpCommand.Get 2⊃rec
           :Select 3⊃rec
           :Case 'tree'
@@ -260,7 +300,7 @@
                   ⎕←f
                   ∘∘∘  ⍝ something went wrong - no idea why etc. need to diagnose when it happens to understand what to do!
               :Else
-                  r,←f[2]
+                  filenames,←f[2]
               :EndIf
      
           :Case 'commit'
@@ -274,20 +314,29 @@
               :Else
                   ∘∘∘⍝could not find submodule!
               :EndIf
-              r,←path GetFilesFromSHA o r(4⊃rec)
+              res←path GetFilesFromSHA o r(4⊃rec)
+              :If 0≠⊃res
+                  rc←⊃res
+                  filenames←'Error retrieving content for ',o,' ',r,' ',4⊃rec
+                  →0
+              :EndIf
+              filenames,←2⊃res
           :Else
               :If 0≠⊃f←(path,1⊃rec)RetrieveFile 2⊃rec
                   ⎕←f
                   ∘∘∘  ⍝ something went wrong - no idea why etc. need to diagnose when it happens to understand what to do!
               :Else
-                  r,←f[2]
+                  filenames,←f[2]
               :EndIf
           :EndSelect
       :EndFor
-     
     ∇
+
     :endsection
+
+
     :section InternalTools
+
     ∇ Init;t
       :If 0=≢gat←2 ⎕NQ'.' 'GetEnvironment' 'GitHub_API_Token'   ⍝ preferred approach to pass API Token is via EnvVar, CmdLine or .dcfg
           ⎕←'Could not find envvar "GitHub_API_Token" - please make sure it is set (in env or .dcfg) before using this function!'
@@ -298,6 +347,8 @@
       :EndIf
       ⎕SE.SALT.Load'HttpCommand.dyalog'
     ∇
+
+    split←(≠⊆⊢)
 
 
  ⍝ from dfns:
@@ -313,7 +364,19 @@
           'Eh?'⎕SIGNAL 11                           ⍝ unrecognised class: abort.
       }
 
-
+      base64←{⎕IO ⎕ML←0 1              ⍝ from dfns workspace - Base64 encoding and decoding as used in MIME.
+          chars←'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+          bits←{,⍉(⍺⍴2)⊤⍵}             ⍝ encode each element of ⍵ in ⍺ bits, and catenate them all together
+          part←{((⍴⍵)⍴⍺↑1)⊂⍵}          ⍝ partition ⍵ into chunks of length ⍺
+          0=2|⎕DR ⍵:2∘⊥∘(8∘↑)¨8 part{(-8|⍴⍵)↓⍵}6 bits{(⍵≠64)/⍵}chars⍳⍵  ⍝ decode a string into octets
+          four←{                       ⍝ use 4 characters to encode either
+              8=⍴⍵:'=='∇ ⍵,0 0 0 0     ⍝   1,
+              16=⍴⍵:'='∇ ⍵,0 0         ⍝   2
+              chars[2∘⊥¨6 part ⍵],⍺    ⍝   or 3 octets of input
+          }
+          cats←⊃∘(,/)∘((⊂'')∘,)        ⍝ catenate zero or more strings
+          cats''∘four¨24 part 8 bits ⍵
+      }
 
     :endsection
 :endnamespace

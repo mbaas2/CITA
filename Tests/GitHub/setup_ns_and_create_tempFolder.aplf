@@ -1,0 +1,12 @@
+ R←setup_ns_and_create_tempFolder dummy
+ :if 0=⎕nc'##.TESTSOURCE'   ⍝ this could happen when executing by passing ns-ref
+##.TESTSOURCE←∊1 ⎕nparts (1⊃⎕NPARTS 1⊃2 ⎕ATX'#.Tests.GitHub.setup_ns_and_create_tempFolder'),'..'
+ :endif
+
+ R←''
+ o←⎕NS'' ⋄ o.overwrite←1
+ {}o ⎕SE.Link.Import ⎕this(##.TESTSOURCE,'../../StartupSession/CITA/GitHub.apln')
+
+
+ tmpPath←(739⌶0),⊃'"/CITA-Tests/GitHub_"YYYYMMDD"_"hhmmss"/"'(1200⌶)1 ⎕DT⊂⎕TS
+ 3 ⎕MKDIR tmpPath

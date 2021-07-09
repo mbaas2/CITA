@@ -1,0 +1,10 @@
+DyalogTest : 1.30
+ID         : GitHub
+Description: 
+
+Setup   : setup_ns_and_create_tempFolder
+
+Test    : test_GettingVariousLists
+Test    : test_DownloadsEtc
+
+Teardown: teardown_removeTempFolder

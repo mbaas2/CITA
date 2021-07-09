@@ -39,7 +39,7 @@
 ⍝A?: -compact=2: two-element vector with ids of enabled & disabled interpreters
      
 ⍝ the "standard"-header for the API-Functions takes care of providing help when the fn is called directly
-
+     
       _InitUCMDs  ⍝ yeah, this is ambigous - but the API-fns also rely on ##.Home being set up. May find a better way to name or address this...
       :If ''=⍥⎕DR arg                              ⍝ if arg is char,
           arg←arg{~∨/⍵⍷⎕C ⍺:⍺,' ',⍵ ⋄ ⍺}'-ucmd=0'  ⍝ this is an API-Call - so be sure to add the -ucmd=0-modifier if we don't see it
@@ -700,13 +700,13 @@
               args,←{(0<≢⍵)/' -int',(⍵≢1)/'=',⍵}''arg.Switch'int'
               args,←' -ucmd=0 -workdir="',wd,'"'
               ns←ExecuteLocalTest(1⊃fl),args   ⍝ pass-through the result...
-              ⎕JSON ns
+              (⎕JSON⍠'HighRank' 'Split')ns
           :EndIf
       :EndIf
      
      
      Exit:
-      ⎕JSON ns
+      (⎕JSON⍠'HighRank' 'Split')ns
     ∇
 
 
@@ -890,6 +890,9 @@
           Apl FoldMembers Json Apl ⍵
       }
 
+      _quote←{'"',(∊(⊂'\"')@{⍵='"'}⍵),'"'}
+      _findLine←{{(+/∧\⍵=' ')↓⍵}¨l↓¨(((l←2+≢⍵)↑¨⍺)≡¨⊂'⍝',⍵,':')/⍺}
+
 
     ∇ file←_FileWithListOfInterpreters;docFld
       :Select platform←3↑1⊃'.'⎕WG'APLVersion'
@@ -912,12 +915,10 @@
     :section UCMDs
 
 
-    ∇ _InitUCMDs;fn;_quote;_findLine;nr;j;parse;maxH;h;hd;r;patt;mode
+    ∇ _InitUCMDs;fn;nr;j;parse;maxH;h;hd;r;patt;mode
       ##.Home←##._getHomeDir
       ##.UCMD._List←'[',NL
       ##.UCMD._Help←0 4⍴''   ⍝ [;1]=fn, [;2]=level, [;3]= regular hlp, [;4]=API-Help
-      _quote←{'"',(∊(⊂'\"')@{⍵='"'}⍵),'"'}
-      _findLine←{{(+/∧\⍵=' ')↓⍵}¨l↓¨(((l←2+≢⍵)↑¨⍺)≡¨⊂'⍝',⍵,':')/⍺}
       :For fn :In {('_'≠1⊃¨⍵)/⍵}##.API.⎕NL-3  ⍝ only for fns NOT starting with '_'
           :If (⎕NC⊂fn)≠3.1
               :Continue

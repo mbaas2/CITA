@@ -1,0 +1,4 @@
+ R←teardown_removeTempFolder
+ R←''
+ 
+3 ⎕ndelete tmpPath
