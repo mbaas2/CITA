@@ -756,14 +756,14 @@
       :CaseList '.aplf' '.aplc' '.dyalog'
           TestLog←xin,'CITA_',(2⊃⎕NPARTS(-(ext≡''))↓Fullname),'.log'
           cmd←'CITATest="',Fullname,'" testlog="',TestLog,'"'
-          dws←∊1 ⎕NPARTS ##.Home,'/client(testdriver)/RunCITA'
+          dws←∊1 ⎕NPARTS ##.Home,'/client/RunCITA'
       :Case '.dws' ⋄ dws←Fullname
       :CaseList '' '.dyalogtest'
           R←4('.dyalogtest or folder-argument only valid for "test", not "',step,'"') ⋄ →(step≢'test')/EndJob
           :If ext≡'' ⋄ :AndIf 1≠1 ⎕NINFO Fullname ⋄ R←4 ⋄ →EndJob ⋄ :EndIf  ⍝ no extension, but does not refer to a folder
           TestLog←xin,'CITA_',(2⊃⎕NPARTS(-(ext≡''))↓Fullname),'.log'
           cmd←'CITATest="',Fullname,'"  testlog="',TestLog,'" ',specs{6::'' ⋄ 'dtestmods="',(⍺⍎⍵),'"'}'dtestmodifiers'
-          dws←'"',∊1 ⎕NPARTS ##.Home,'/client(testdriver)/RunCITA"'
+          dws←'"',∊1 ⎕NPARTS ##.Home,'/client/RunCITA"'
           isDTest←1
       :Else
           R←4('Did not recognize type of file "',file,'"') ⋄ →EndJob
