@@ -3,7 +3,7 @@ ID: RunCITA, Version=1
 
 APL: ./WS/*.dyalog,Target=#
 
-LX: lx
+LX: lx 0
 
 DEFAULTS: ⎕ML←⎕IO←1
 

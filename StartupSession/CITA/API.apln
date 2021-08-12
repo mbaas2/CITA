@@ -569,16 +569,20 @@
 ⍝?: Test a remote GitHub-repository
 ⍝?:
 ⍝?: ]TestRepo [URL]|[org repo]    -branch=<id>  -tag=<id>   -commit=<sha> -pull∊0123456789 [-keep[∊RCcr]] -keeponfailure[∊RCcr] [-int[=180U64...]
-⍝Parse:        1-2L               -branch=      -tag=       -commit=      -pull∊0123456789  -keep[∊]RCcr  -keeponfailure[∊]RCcr  -int[∊]"0123456789UCuc_/,.~-all"
+⍝Parse:        1-2L               -branch=      -tag=       -commit=      -pull∊0123456789  -keep[∊]RCcr  -keeponfailure[∊]RCcr  -int[∊]"0123456789UCuc_/,.~-all"   -jenkins
 ⍝??: Test a remote repository
 ⍝??:
 ⍝?: ]TestRepo [URL]|[[org] repo]    -branch=<id> | -tag=<id> | -commit=<id> | -pull=<no of PR>
 ⍝??: <URL>                URL of a repo (can also be a URL of a commit or tag or branch or PR as taken from your browser)
 ⍝??: <org>                name of an organization (i.e. "dyalog" - which is also the default)
 ⍝??: <repo>               name of a repo (i.e. "CITA")
+⍝??: Switch -jenkins indicates that we are supposed to create the Jenkinx jobs that execute the tests.
+     
+      _InitUCMDs  ⍝ yeah, this is ambigous - but the API-fns rely on ##.Home being set up. May find a better way to name or address this...
       ns←⎕NS''
       ns.Log←''
       ns.rc←¯1
+      arg←##._Parse arg  ⍝ ensure its a parsed arg...
       fl←1 ''##._getArg 1 arg
       fl←{'http'≡4↑⎕C ⍵:⍵ ⋄ ∊1 ⎕NPARTS ⍵}fl  ⍝ fld=folder, fl=path to a CITA.json
       sha←''
@@ -630,7 +634,7 @@
               hasCITA←##.GitHub.HasCITA url
           :EndIf
           :If ~hasCITA
-          :AndIf ##.GitHub.HasCITA arg.(_1 _2)
+          :AndIf ~##.GitHub.HasCITA arg.(_1 _2)
               ns.rc←2
               ns.Log←'Repository ',(∊arg.(_1'/',_2)),' does not contain CITA.json[5]'
               →0
@@ -639,6 +643,107 @@
      
      
 ⍝ create tempdir for stuff downloaded from repo
+      :If arg.jenkins
+        ⍝  (rc log)←⎕SE.CITA.JenkinsConnection.Run''
+        ⍝   ns.Log←log
+        ⍝   ns.rc←rc
+        ⍝   →0
+          home←##.Home
+     
+          (org repo)←arg.(_1 _2)
+          dcwd←2 ⎕NQ'.' 'GetEnvironment' 'DYALOGCITAWORKDIR'
+          wd←dcwd,(~∨/'\/'∊⊢/dcwd)/'/'  ⍝ make sure path ends with '/'
+          xinO←∊1 ⎕NPARTS wd,,('ZI4,ZI2,ZI2,<_>,ZI2,ZI2,ZI2,</',repo,'/>')⎕FMT 1 6⍴⎕TS   ⍝ create name for subfolder of our test
+          :While ⎕NEXISTS xinO   ⍝ if that folder exists...
+              xinO←{~'#'∊⍵:⍵,'#1' ⋄ i←⍵⍳'#' ⋄ ⍵[⍳i],⍕1+2⊃⎕VFI i↓⍵}xinO    ⍝ append a counter to make it unique...
+          :End
+          :Trap 0
+              3 ⎕MKDIR xinO   ⍝ create it
+          :Else
+              ⎕←'Error while attempting to create subfolder for test: ',xinO
+              ⎕←↑⎕DM
+          :EndTrap
+     
+⍝ get the last version of DyalogBuild.dyalog to ensure that we interpreters will use the latest version of ]DTest
+          :If 0≠⊃res←(xinO,'SALT/spice/DyalogBuild.dyalog')##.GitHub.RetrieveFile'https://github.com/Dyalog/DBuildTest/blob/master/DyalogBuild.dyalog'
+              ns.rc←4712 ⍝ TODO: proper error etc.
+              ns.Log←'Download of DBuildTest repo failed with',2⊃res
+              →0
+          :EndIf
+     
+          :If 0≠⊃res←(xinO,'CITA/')##.GitHub.GetFilesFromSHA'Dyalog' 'CITA'
+              ns.rc←4712 ⍝ TODO: proper error etc.
+              ns.Log←'Download of CITA repo failed with',2⊃res
+              →0
+          :EndIf
+     
+          3 ⎕MKDIR xinO,'CITA'
+          rc1←(xinO,repo)##.GitHub.GetFilesFromSHA org repo ⍝sha
+          :If 0≠1⊃rc1
+              ns.rc←4711  ⍝ TODO: better error
+              ns.Log←'Error retrieving repo: ',∊1↓rc1
+              →0
+          :EndIf
+⍝          rd←1⊃1(⎕NINFO⍠'Wildcard' 1)xinO,'*.*'
+          (rc1 cfg log1)←_GetTestSpecs∊(⊂xinO,repo,'/'){⎕NEXISTS r←⍺,⍵:r ⋄ ⍬}¨'CITA.json' 'CITA.json5'
+          :If rc1≠0
+              ns.Log←'Error retrieving test specs: ',log1
+              ns.rc←4711   ⍝ TODO: assign proper error no and document it
+              →0
+          :EndIf
+          aplv←⎕JSON 1⊃⎕NGET home,'dyalogversions.json'
+          fapl←⊃∪/FilterAPLVersions¨(⊆cfg.dyalogversions),¨⊂' -list=',¯1↓∊aplv,¨','   ⍝ all versions we need to run on
+     
+          FixPath←{('u:/' 'U:/'⎕R'/devt/' '/devt/'⍠'Regex' 0)⍵}   ⍝ translate U: to /devt/
+⍝ use a CONFIGFILE from the parent folder of DYALOGCITAWORKDIR
+          configfile←xinO,'cita.dcfg'
+          cfg←⎕NS''
+          cfg.Settings←⎕NS''
+          cfg.Settings.COMMANDFOLDER←FixPath xinO,'SALT/spice/'
+          cfg.Settings.DyalogStartupSE←FixPath xinO,'/CITA/StartupSession'
+          cfg.Settings.RunUCMD←'ExecuteLocalTest ',FixPath xinO
+          (⊂(⎕JSON⍠'Compact' 0)cfg)⎕NPUT configfile
+     
+          cmdline←FixPath xinO,'CITA/client/RunCITA.dws'
+          cmdline,←' CONFIGFILE=&apos;',(FixPath configfile),'&apos;' ⍝ passing that path w/o quotes, so there should never be blanks in it! Want to avoid hazzle with
+          ⍝cmdline,←' "',(∊1 ⎕NPARTS ##.Home),'/client/RunCITA" '
+⍝ run Jenkins job that execute commandline systems using given labels.  TODO: consider fapl here!
+              ⍝jenk.Labels←↓'F4.1,< >'⎕FMT fapl  ⍝ TODO: unsure if Labels is best for this - or explicit DYALOGVERSIONS....?
+     
+          :If ⎕NEXISTS file←'./jobTemplate.xml'
+          :OrIf ⎕NEXISTS file←(1⊃⎕NPARTS 1⊃2 ⎕ATX 1⊃⎕SI),'jobTemplate.xml'
+              job←1⊃⎕NGET file
+              stages←''
+              :For platform :In 'mac' 'win' 'linux' ⍝ TODO: maybe CITA.json5 should specify the platforms?
+                  file_s←(∊2↑⎕NPARTS file),'-stages-',platform,'.xml'  ⍝ the stage-file for that platform
+                  :If ⎕NEXISTS file_s
+                      (stage nlf)←(⎕NGET file_s 1)[1 3]
+                      :For version :In fapl
+                          stages,←('%VERSION%'⎕R(⍕version)⍠'Regex' 0)stage
+                      :EndFor
+                  :EndIf
+              :EndFor
+          ⍝:End
+     
+              p1←⍸∊'%STAGES%'⍷job  ⍝ search string that we will replace with content of var "stages"
+              lb←¯1+p1-⌈/⍸((⎕UCS job)∊10 13)∧(⍳≢job)<p1  ⍝ leading blanks of lines (so that we can maintain indent)
+              job←((p1-1)↑job),(∊(⊂lb⍴' '),¨stages,¨⊂⎕UCS nlf),(p1+7)↓job
+              file←xinO,∊1↓⎕NPARTS file
+              (⊂job)⎕NPUT file
+              jenk←⎕NEW ##.JenkinsConnection
+              jenk.(Debug Cleanup)←1 0
+              cmdline←FixPath cmdline  ⍝ TODO: this may need to be improved with a config-setting for mappings
+              jenk.Commandline←cmdline
+              (rc log)←file jenk.RunJob'_test_',repo
+              ns.Log,←'Executing job as defined in ',file
+              ns.Log,←'BEGIN of Jenkins log',NL,log,NL,'END of Jenkins log',NL
+              ns.rc←rc
+              →0
+          :Else
+              ∘∘∘
+          :EndIf
+      :EndIf
+     
       xinO←(739⌶0),,('</CITA_Test/>,ZI4,ZI2,ZI2,<_>,ZI2,ZI2,ZI2,</repo/',(arg._1,'-',arg._2),'/>')⎕FMT 1 6⍴⎕TS
       3 ⎕MKDIR xinO
      
@@ -693,7 +798,7 @@
           :If 0=1⊃r       ⍝ if that ended ok
           :AndIf ×≢2⊃r     ⍝ and if we got any files from it
               wd←1⊃⎕NPARTS ¯1↓1⊃⎕NPARTS ¯1↓xinO
-              fl←⊃0(⎕NINFO⍠'Recurse' 2)xinO,'CITA.json5'
+              fl←⊃0(⎕NINFO⍠('Recurse' 2)('Wildcard' 1))xinO,'CITA.json*'
      
               args←{(0<≢⍵)/' -keep=',⍵}''arg.Switch'keep'
               args,←{(0<≢⍵)/' -keeponfailure=',⍵}''arg.Switch'keeponfailure'
@@ -703,12 +808,9 @@
               (⎕JSON⍠'HighRank' 'Split')ns
           :EndIf
       :EndIf
-     
-     
      Exit:
       (⎕JSON⍠'HighRank' 'Split')ns
     ∇
-
 
     :section tools
     ∇ (R log)←step _RunJob cfg_specs_interpreter;cpu;dws;cmd;ext;proc;StatusFiles;ai3;log;specs;cfg;file;isDTest;Fullname;t;TestLog;log_file;exited
@@ -890,8 +992,8 @@
           Apl FoldMembers Json Apl ⍵
       }
 
-      _quote←{'"',(∊(⊂'\"')@{⍵='"'}⍵),'"'}
-      _findLine←{{(+/∧\⍵=' ')↓⍵}¨l↓¨(((l←2+≢⍵)↑¨⍺)≡¨⊂'⍝',⍵,':')/⍺}
+    _quote←{'"',(∊(⊂'\"')@{⍵='"'}⍵),'"'}
+    _findLine←{{(+/∧\⍵=' ')↓⍵}¨l↓¨(((l←2+≢⍵)↑¨⍺)≡¨⊂'⍝',⍵,':')/⍺}
 
 
     ∇ file←_FileWithListOfInterpreters;docFld
@@ -987,7 +1089,7 @@
 
     ∇ new←FilterAPLVersions arg;inst;l3;cmd;disable;z;range;objs;list;hlp;dsl;z1;z2
 ⍝:: Process ","-separated filters in dsl to build list of selected interpreters
-⍝AParse: 1S -get∊xiovVf -ucmd=0
+⍝AParse: 1S -get∊xiovVf -ucmd=0 -list∊01234567890.,
 ⍝A?: This implements a DSL for selection of Dyalog interpreters:
 ⍝A?: [mode][[version[s]]|/][edition][bits]
 ⍝A?: if version(s) is elided, a / must be given to indicate missing first element. (This allows us to recognize "/32" as a bitness-selector)
@@ -1016,6 +1118,8 @@
 ⍝A??: To query the list of installed v16-Interpreters, you can do "16 -v". But to get a list
 ⍝A??: of already enabled interpreters, you'd need more that just changing v into V, you'd also
 ⍝A??: have to disable unwanted interpreters: "16,~-15.99,~17- -V".
+⍝A??: Switch "-list" can be used to provide a list of version numbers that will be filtered - no consideration of
+⍝A??: bits or editions. (Primarily used for internal purposes)
      
       _InitUCMDs  ⍝ yeah, this is ambigous - but the API-fns als rely on ##.Home being set up. May find a better way to name or address this...
       :If ''=⍥⎕DR arg       ⍝ if arg is char,
@@ -1029,13 +1133,17 @@
       :EndIf
      
       dsl←##._getArg 1 arg
-     
-      objs←⎕JSON 1⊃⎕NGET _FileWithListOfInterpreters
-      objs←(objs.id≢¨⊂'doc')/objs
-      list←objs.id
-      l3←('(\d\d[\.?\d]?)([ |c|u])(\d{2})'⎕S'\1 \2 \3'⍠1)list
+      :If 0<≢list←arg.Switch'list'
+          list←,[1.5]','(≠⊆⊢)list
+          l3←list,{⍬⍴2⊃⎕VFI ⍵}¨list
+      :Else
+          objs←⎕JSON 1⊃⎕NGET _FileWithListOfInterpreters
+          objs←(objs.id≢¨⊂'doc')/objs
+          list←objs.id
+          l3←('(\d\d[\.?\d]?)([ |c|u])(\d{2})'⎕S'\1 \2 \3'⍠1)list
       ⍝ convert list into [;1]=id, [;2]=version, [;3]=bits, [;4]=edition
-      l3←list,↑{({⍬⍴(2⊃⎕VFI 2↑⍵)+(2<≢⍵)×0.1×2⊃⎕VFI ¯1↑⍵}¨⍵[1 3]),⎕C 2⊃⍵}¨{' '(≠⊆⊢)⍵}¨l3
+          l3←list,↑{({⍬⍴(2⊃⎕VFI 2↑⍵)+(2<≢⍵)×0.1×2⊃⎕VFI ¯1↑⍵}¨⍵[1 3]),⎕C 2⊃⍵}¨{' '(≠⊆⊢)⍵}¨l3
+      :EndIf
       :If 'V'=arg.Switch'get'
           new←({6::1 ⋄ 0=≢⍵.disabled}¨objs)/objs.id   ⍝ start with current list and then apply changes if we're in V-mode!
       :Else
@@ -1050,7 +1158,7 @@
                   :If '/'≠⊃cmd
                       range←0 ¯1 99 0 0 ⍝ range[1]: yes, "-" was used, [2] is start and [3] is end of range, range [4 5]: was a '.' used in the version-spec 2&3
                       :If ∧/(2↑cmd)∊⎕D
-                          z←∧\((≢cmd)↑1 1)∧cmd∊⎕D,'.'  ⍝ just get the leading digits
+                          z←∧\cmd∊⎕D  ⍝ just get the leading digits
                           range[2]←⍬⍴2⊃⎕VFI z/cmd
                           cmd←(~z)/cmd
                           :If 0<≢cmd
@@ -1060,6 +1168,10 @@
                           :EndIf
                       :EndIf
                       range[1]←'-'=⊃cmd
+                      :If '+'=⊃cmd ⍝ "+" after first version indicates "open range" (ending with 99)
+                          cmd←1↓cmd
+                          range[1]←1
+                      :EndIf
                       cmd←range[1]↓cmd
                       :If 0<≢cmd
                       :AndIf ∨/z←∧\((≢cmd)↑1 1)∧cmd∊⎕D,'.'  ⍝ just get the leading digits
@@ -1085,16 +1197,18 @@
                   :Else
                       cmd←1↓cmd
                   :EndIf
-                  :If ∨/'_uc'∊⎕C⊃cmd
-                      :If (⎕C⊃cmd)∊'cu'
-                          z←'z'{6::⍵ ⋄ ⍵∧⍎⍺}l3[;4]=⎕C⊃cmd
-                      :Else
-                          z←'z'{6::⍵ ⋄ ⍵∧⍎⍺}(≢l3)⍴1  ⍝ select all
+                  :If 2<¯1↑⍴l3   ⍝ if we know bits/edition (NOT working against -list, but using "real" specs)
+                      :If ∨/'_uc'∊⎕C⊃cmd
+                          :If (⎕C⊃cmd)∊'cu'
+                              z←'z'{6::⍵ ⋄ ⍵∧⍎⍺}l3[;4]=⎕C⊃cmd
+                          :Else
+                              z←'z'{6::⍵ ⋄ ⍵∧⍎⍺}(≢l3)⍴1  ⍝ select all
+                          :EndIf
+                          cmd←1↓cmd
                       :EndIf
-                      cmd←1↓cmd
-                  :EndIf
-                  :If (⊂cmd)∊'32' '64'
-                      z←'z'{6::⍵ ⋄ ⍵∧⍎⍺}l3[;3]∊2⊃⎕VFI cmd
+                      :If (⊂cmd)∊'32' '64'
+                          z←'z'{6::⍵ ⋄ ⍵∧⍎⍺}l3[;3]∊2⊃⎕VFI cmd
+                      :EndIf
                   :EndIf
               :EndIf
               :If 0=⎕NC'z'
@@ -1133,6 +1247,5 @@
      
     ∇
     :endsection
-
 
 :endnamespace
