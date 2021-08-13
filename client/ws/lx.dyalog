@@ -20,7 +20,7 @@
  ⍝ set up ⎕SE._cita
  ⎕se.UCMD'ureset'
  ⎕←2⎕nq'.' 'GetEnvironment' 'COMMANDFOLDER'
- ⎕←'exists=',⍕⎕nexists 2⎕nq'.' 'GetEnvironment' 'COMMANDFOLDER'
+ ⎕←'exists=',⍕⍎'⎕nexists ''',(2⎕nq'.' 'GetEnvironment' 'COMMANDFOLDER'),''''
  ⎕←⎕SE.UCMD'GetTools4CITA ',⍕⎕this
  NL←⎕UCS 13
  ⎕ML←1
