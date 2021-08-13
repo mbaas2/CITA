@@ -1,6 +1,6 @@
 ﻿ lx arg;v;Env;subj;ext;r;z;s;cmd;y;log;wsFullReport;⎕RL;⎕ML;⎕IO;rc;path;NL;CITA_Log
  ⍝ OFF with returncode 42: all is well, 43: error, 44: WS FULL
- :If arg=0  ⍝ setup a temp ns in ⎕SE and execute things there (to avoid problems with tests doing "DBuild -c")
+ :If 0∧arg=0  ⍝ setup a temp ns in ⎕SE and execute things there (to avoid problems with tests doing "DBuild -c")
      t←'tmp' ⋄ cnt←''
      :While 9=⎕SE.⎕NC t,cnt ⍝
          cnt←⍕1+2⊃⎕VFI'0',cnt
