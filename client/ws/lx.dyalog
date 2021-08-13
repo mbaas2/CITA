@@ -18,6 +18,8 @@
   2⎕nq'⎕se' 'FileRead'
   :endif
  ⍝ set up ⎕SE._cita
+ ⎕se.UCMD'ureset'
+ ⎕←⎕se.UCMD'-?'
  ⎕←⎕SE.UCMD'GetTools4CITA ',⍕⎕this
  NL←⎕UCS 13
  ⎕ML←1
