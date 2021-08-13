@@ -10,6 +10,13 @@
      {2 ⎕NQ'⎕se' 'Keypress'⍵}¨ns,'.lx 1',⊂'ER'   ⍝ ensure that we execute lx by triggering a "clean call"
      →0
  :EndIf
+ :if 0=⎕se.⎕nc'UCMD'
+   d←2⎕nq'.' 'GetEnvironment' 'DYALOG'
+   ⎕←'d=',d
+   ⍝⎕se.File←'/opt/mdyalog/18.0/64/unicode/default.dse'
+   ⎕se.File←d,'/default.dse'
+  2⎕nq'⎕se' 'FileRead'
+  :endif
  ⍝ set up ⎕SE._cita
  ⎕←⎕SE.UCMD'GetTools4CITA ',⍕⎕this
  NL←⎕UCS 13
@@ -51,14 +58,10 @@
      :Select ext
      :CaseList '' '.dyalogtest',('DTest'≡Env'mode')/⊂ext
          :Trap 0
-             ⎕←'THIS=',⍎'⎕this'
-             ⎕←'Env=',⎕NC'Env'
              ⎕←cmd←'DTest "',subj,'" -testlog="',(Env'testlog'),'" ',(Env'dtestmods ')
              ⎕SE.UCMD cmd
              rc←20
          :Else
-             ⎕←'THIS=',⍎'⎕this'
-             ⎕←'Env=',⎕NC'Env'
              rc←21
              ⎕←'Error during ',(1⊃⎕xSI).,': ',(⍎'(⎕json⍠''Compact''0) ⎕DMX')    ⍝ avoid problems with 12.1 which can't tokenize ⎕DMX (saved in 12.1, executed in 18)
              ⎕←'en=',⎕EN
