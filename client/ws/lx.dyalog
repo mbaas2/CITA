@@ -12,15 +12,21 @@
  :EndIf
  :if 0=⎕se.⎕nc'UCMD'
    d←2⎕nq'.' 'GetEnvironment' 'DYALOG'
-   ⎕←'d=',d
    ⍝⎕se.File←'/opt/mdyalog/18.0/64/unicode/default.dse'
    ⎕se.File←d,'/default.dse'
   2⎕nq'⎕se' 'FileRead'
-  :endif
- ⍝ set up ⎕SE._cita
+  ⎕dl 1 ⍝ make sure we don't have a timing issue
+   ⎕←'cmddir=',⎕se.SALT.Set'cmddir'
+   ⎕←'COMMANDFOLDER=',⎕se.Dyalog.Utils.Config'COMMANDFOLDER'
+   {}⎕se.SALT.Set'cmddir ',⎕se.Dyalog.Utils.Config'COMMANDFOLDER'
+   ⎕←'cmddir=',⎕se.SALT.Set'cmddir'
+    ⎕SE.Dyalog.Callbacks.WSLoaded 1 
  ⎕se.UCMD'ureset'
+ ⎕←⎕se.UCMD'-?'
  ⎕←2⎕nq'.' 'GetEnvironment' 'COMMANDFOLDER'
  ⎕←'exists=',⍕⍎'⎕nexists ''',(2⎕nq'.' 'GetEnvironment' 'COMMANDFOLDER'),''''
+  :endif
+ ⍝ set up ⎕SE._cita
  ⎕←⎕SE.UCMD'GetTools4CITA ',⍕⎕this
  NL←⎕UCS 13
  ⎕ML←1

@@ -1,0 +1,33 @@
+        stage ('mac_%VERSION%') {
+          agent{
+            label "%CITA_VERSION%&&mac&&%VERSION%"
+          }
+          steps {                
+            script {
+              echo "NODE_NAME = ${env.NODE_NAME}"            
+              path = "/Dyalog/Dyalog-%VERSION%.app/Contents/Resources/Dyalog/mapl"
+              exists = fileExists(path)          
+              if (exists) {
+                echo "PLATFORM=mac, path=${path}: File exists!"
+              } else {
+                echo "PLATFORM=mac, path=${path}: File does not exist, trying another path"
+                path = "/Applications/Dyalog-%VERSION%.app/Contents/Resources/Dyalog/mapl"
+                exists = fileExists(path)          
+                if (exists) {
+                  echo "PLATFORM=mac, path=${path}: File exists!"
+                } else {
+                  echo "PLATFORM=mac, path=${path}: File does not exist, giving it up!"
+                  path = ""
+                }
+              }
+              if (path != "" ){
+                cmdline = "%CMDLINE%"
+                if ("${env.NODE_NAME}"=="mac3") {
+                  cmdline = cmdline.replace("/devt/","/Volumes/devt/")
+                }
+                echo "Launching $path $cmdline "
+                sh "$path $cmdline"
+              }
+            }
+          }
+        }

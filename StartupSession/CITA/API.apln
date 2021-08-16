@@ -3,7 +3,7 @@
     ⎕ml←1
     ⎕io←1
     Timeout←180 ⍝ seconds before we consider a job to have timedout
-    DEBUG←⎕se.SALTUtils.DEBUG×0   ⍝ only allow debugging if we're in UCMD-DEBUG mode
+    DEBUG←⎕se.SALTUtils.DEBUG⍝×´0   ⍝ only allow debugging if we're in UCMD-DEBUG mode
     If←/⍨   ⍝  AB's father
 
     ∇ (R log)←APLVersions arg;k;i;keys;int;exe;bak;cnt;file;json;old;doc;platform;fld;cJSON;z1;z2;t;old∆;k2;lglv;hlp;args;res;updated
@@ -564,7 +564,7 @@
       ns.testMat←resTab
     ∇
 
-    ∇ {ns}←TestRepo arg;fld;fl;loc;xin;rc;specs;R;step;specsObj;lg;cnt;list;showedIO;log;del;list2;v;xin∆;jlog;cfg;rcTest;interpreters;interpreter;t;int;resTab;plus;V;B;b;E;xinO;lint;dot;item;wd;args;url;sha
+    ∇ {ns}←TestRepo arg;fld;fl;loc;xin;rc;specs;R;step;specsObj;lg;cnt;list;showedIO;log;del;list2;v;xin∆;jlog;cfg;rcTest;interpreters;interpreter;t;int;resTab;plus;V;B;b;E;xinO;lint;dot;item;wd;args;url;sha;stages;cmdline_s;configfile;sdir;repo;platform;version;fapl;file_s;nlf;stage;file;job;cmdline;FixPath;rc1;aplv;log1;res;org;dcwd;home;hasCITA;lb;jenk;p1
 ⍝:: Test a remote GitHub-repository
 ⍝?: Test a remote GitHub-repository
 ⍝?:
@@ -664,20 +664,21 @@
               ⎕←↑⎕DM
           :EndTrap
      
-⍝ get the last version of DyalogBuild.dyalog to ensure that we interpreters will use the latest version of ]DTest
-          :If 0≠⊃res←(xinO,'SALT/spice/DyalogBuild.dyalog')##.GitHub.RetrieveFile'https://github.com/Dyalog/DBuildTest/blob/master/DyalogBuild.dyalog'
-              ns.rc←4712 ⍝ TODO: proper error etc.
-              ns.Log←'Download of DBuildTest repo failed with',2⊃res
-              →0
-          :EndIf
      
+          3 ⎕MKDIR xinO,'CITA'
           :If 0≠⊃res←(xinO,'CITA/')##.GitHub.GetFilesFromSHA'Dyalog' 'CITA'
               ns.rc←4712 ⍝ TODO: proper error etc.
               ns.Log←'Download of CITA repo failed with',2⊃res
               →0
           :EndIf
      
-          3 ⎕MKDIR xinO,'CITA'
+⍝ get the last version of DyalogBuild.dyalog to ensure that we interpreters will use the latest version of ]DTest
+          :If 0≠⊃res←(xinO,'CITA/SALT/spice/DyalogBuild.dyalog')##.GitHub.RetrieveFile'https://raw.githubusercontent.com/Dyalog/DBuildTest/master/DyalogBuild.dyalog'
+              ns.rc←4712 ⍝ TODO: proper error etc.
+              ns.Log←'Download of DBuildTest repo failed with',2⊃res
+              →0
+          :EndIf
+     
           rc1←(xinO,repo)##.GitHub.GetFilesFromSHA org repo ⍝sha
           :If 0≠1⊃rc1
               ns.rc←4711  ⍝ TODO: better error
@@ -685,7 +686,7 @@
               →0
           :EndIf
 ⍝          rd←1⊃1(⎕NINFO⍠'Wildcard' 1)xinO,'*.*'
-          (rc1 cfg log1)←_GetTestSpecs∊(⊂xinO,repo,'/'){⎕NEXISTS r←⍺,⍵:r ⋄ ⍬}¨'CITA.json' 'CITA.json5'
+          (rc1 cfg log1)←_GetTestSpecs cita_file←∊(⊂xinO,repo,'/'){⎕NEXISTS r←⍺,⍵:r ⋄ ⍬}¨'CITA.json' 'CITA.json5'
           :If rc1≠0
               ns.Log←'Error retrieving test specs: ',log1
               ns.rc←4711   ⍝ TODO: assign proper error no and document it
@@ -696,16 +697,15 @@
      
           FixPath←{('u:/' 'U:/'⎕R'/devt/' '/devt/'⍠'Regex' 0)⍵}   ⍝ translate U: to /devt/
 ⍝ use a CONFIGFILE from the parent folder of DYALOGCITAWORKDIR
-          configfile←xinO,'cita.dcfg'
           cfg←⎕NS''
           cfg.Settings←⎕NS''
-          cfg.Settings.COMMANDFOLDER←FixPath xinO,'SALT/spice/'
-          cfg.Settings.DyalogStartupSE←FixPath xinO,'/CITA/StartupSession'
-          cfg.Settings.RunUCMD←'ExecuteLocalTest ',FixPath xinO
-          (⊂(⎕JSON⍠'Compact' 0)cfg)⎕NPUT configfile
-     
+          (xinO,'CITA/client')(⎕NCOPY⍠'IfExists' 'Replace')'c:\git\CITA\client\RunCITA.dws '  ⍝ TEMP TODO: remove!!!
           cmdline←FixPath xinO,'CITA/client/RunCITA.dws'
-          cmdline,←' CONFIGFILE=&apos;',(FixPath configfile),'&apos;' ⍝ passing that path w/o quotes, so there should never be blanks in it! Want to avoid hazzle with
+          cmdline,←' ENABLE_CEF=0'
+          cmdline,←' DYALOGCITASRCDIR=',FixPath xinO,'CITA'
+          cmdline,←' DYALOGSTARTUPSE=',FixPath xinO,'CITA/StartupSession/'
+          cmdline,←' COMMANDFOLDER=',FixPath xinO,'CITA/SALT/spice/'
+          ⍝cmdline,← FixPath xinO,'CITA/StartupSession/'
           ⍝cmdline,←' "',(∊1 ⎕NPARTS ##.Home),'/client/RunCITA" '
 ⍝ run Jenkins job that execute commandline systems using given labels.  TODO: consider fapl here!
               ⍝jenk.Labels←↓'F4.1,< >'⎕FMT fapl  ⍝ TODO: unsure if Labels is best for this - or explicit DYALOGVERSIONS....?
@@ -719,7 +719,19 @@
                   :If ⎕NEXISTS file_s
                       (stage nlf)←(⎕NGET file_s 1)[1 3]
                       :For version :In fapl
-                          stages,←('%VERSION%'⎕R(⍕version)⍠'Regex' 0)stage
+                          sdir←xinO,platform,'_',version,'/'      ⍝ config & results for that stage
+                          3 ⎕MKDIR sdir,repo
+                          sdir⎕NCOPY xinO,repo,'/'          ⍝ copy repository into that folder
+     
+                          cfg.Settings.RunUCMD←'ExecuteLocalTest ',FixPath sdir,repo,'/',∊1↓⎕NPARTS cita_file
+                          cfg.Settings.CITA_Log←FixPath sdir,'CITA.log'
+                          configfile←sdir,'cita.dcfg'
+                          (⊂(⎕JSON⍠'Compact' 0)cfg)⎕NPUT configfile
+     
+                          cmdline_s←cmdline,' USERCONFIGFILE=',FixPath configfile ⍝ passing that path w/o quotes, so there should never be blanks in it! Want to avoid hazzle with
+                          cmdline_s←FixPath cmdline_s  ⍝ TODO: this may need to be improved with a config-setting for mappings
+     
+                          stages,←('%VERSION%' '%CMDLINE%'⎕R(⍕version)(cmdline_s)⍠'Regex' 0)stage
                       :EndFor
                   :EndIf
               :EndFor
@@ -732,9 +744,10 @@
               (⊂job)⎕NPUT file
               jenk←⎕NEW ##.JenkinsConnection
               jenk.(Debug Cleanup)←1 0
-              cmdline←FixPath cmdline  ⍝ TODO: this may need to be improved with a config-setting for mappings
-              jenk.Commandline←cmdline
-              (rc log)←file jenk.RunJob'_test_',repo
+              lb←⊃⌽'/'(≠⊆⊢)1⊃⎕NPARTS ¯1↓xinO
+              (rc log)←file jenk.RunJob lb,'_',repo
+              (⊂log)⎕NPUT(file,'.log')1  ⍝ save the log (temp)  TODO: remove!
+     
               ns.Log,←'Executing job as defined in ',file
               ns.Log,←'BEGIN of Jenkins log',NL,log,NL,'END of Jenkins log',NL
               ns.rc←rc
@@ -933,7 +946,11 @@
           :If 2=specs.⎕NC'defaults'
               specs.(defaults{(⊂⍺ ⍵){(s t)←⍺ ⋄ 0=t.⎕NC ⍵:⍎'t.',⍵,'←s.',⍵}¨⍺.⎕NL-2}¨tests)    ⍝ Apply defaults to all tests
           :EndIf
-     
+          :If 0=specs.⎕NC'tests'  ⍝ optional element
+              spec←⎕JSON specs
+              'tests'specs.⎕NS''
+              specs.tests←⎕JSON spec
+          :EndIf
           ⍝ and make sure we have something in Test (will be validated later)
           :For spec :In specs.tests
             ⍝ set defaults for optional entries Setup/Teardown

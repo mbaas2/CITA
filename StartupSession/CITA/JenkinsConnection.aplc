@@ -150,11 +150,11 @@
       JOBNAME←'CITA_',jobname
       url←CISERVER,'/createItem?name=',JOBNAME
       bin←1⊃⎕NGET file
-      :If 0<≢load_workspace
-          dws←∊1↓⎕NPARTS load_workspace
-          ('u:\apltools\CITA\',dws)(⎕NCOPY⍠'IfExists' 'Replace')load_workspace
-          bin←('$APP'⎕R'/devt/apltools/CITA'⍠('Regex' 0))bin
-      :EndIf
+    ⍝   :If 0<≢load_workspace
+    ⍝       dws←∊1↓⎕NPARTS load_workspace
+    ⍝       ('u:\apltools\CITA\',dws)(⎕NCOPY⍠'IfExists' 'Replace')load_workspace
+    ⍝       bin←('$APP'⎕R'/devt/apltools/CITA'⍠('Regex' 0))bin
+    ⍝   :EndIf
       i←⍸'<script>'⍷bin ⋄ binPre←(i+7)↑bin ⋄ bin←(i+7)↓bin
       i←⍸'</script>'⍷bin ⋄ binPost←(i-1)↓bin ⋄ bin←(i-1)↑bin
       ⍝ evaluate :if/:endif inside script template
@@ -193,7 +193,7 @@
 ⍝      (⎕lc[1]+1)⎕stop 1⊃⎕si
       bin←('&(?![a-z]*;)'⎕R'&amp;')bin
       bin←('"' '''' '%cmdline%'⎕R'&quot;' '&apos;'Commandline⍠('Regex' 0))bin
-     ∘∘∘
+
       bin←binPre,bin,binPost
       res←bin post(url(1 2⍴'Content-Type' 'application/xml'))
      
