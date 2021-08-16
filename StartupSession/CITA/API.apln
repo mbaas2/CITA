@@ -729,9 +729,8 @@
                           (⊂(⎕JSON⍠'Compact' 0)cfg)⎕NPUT configfile
      
                           cmdline_s←cmdline,' USERCONFIGFILE=',FixPath configfile ⍝ passing that path w/o quotes, so there should never be blanks in it! Want to avoid hazzle with
-                          cmdline_s,←' ExecuteLocalTest ',FixPath sdir,repo,'/',∊1↓⎕NPARTS cita_file
                           cmdline_s,←' CITA_Log=',FixPath sdir,'CITA.log'
-                          cmdline_s←FixPath cmdline_s  ⍝ TODO: this may need to be improved with a config-setting for mappings
+                          cmdline_s,←' RunUCMD="ExecuteLocalTest ',FixPath sdir,repo,'/',(∊1↓⎕NPARTS cita_file),'"'
      
                           stages,←('%VERSION%' '%CMDLINE%'⎕R(⍕version)(cmdline_s)⍠'Regex' 0)stage
                       :EndFor

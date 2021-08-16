@@ -21,7 +21,7 @@
                 }
               }
               if (path != "" ){
-                cmdline = /%CMDLINE%/
+                cmdline = '%CMDLINE%'
                 if ("${env.NODE_NAME}"=="mac3") {
                   cmdline = cmdline.replace("/devt/","/Volumes/devt/")
                 }
