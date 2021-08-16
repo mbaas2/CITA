@@ -695,7 +695,7 @@
           aplv←⎕JSON 1⊃⎕NGET home,'dyalogversions.json'
           fapl←⊃∪/FilterAPLVersions¨(⊆cfg.dyalogversions),¨⊂' -list=',¯1↓∊aplv,¨','   ⍝ all versions we need to run on
      
-          FixPath←{a←0 ⋄ ~a:('u:/' 'U:/'⎕R'/devt/' '/devt/'⍠'Regex' 0)⍵ ⋄ ('u:/' 'U:/'⎕R'${DEVT}' '${DEVT}'⍠'Regex' 0)⍵}   ⍝ translate U: to /devt/
+          FixPath←{⍺←0 ⋄ ~⍺:('u:/' 'U:/'⎕R'/devt/' '/devt/'⍠'Regex' 0)⍵ ⋄ ('u:/' 'U:/'⎕R'${DEVT}' '${DEVT}'⍠'Regex' 0)⍵}   ⍝ translate U: to /devt/
 ⍝ use a CONFIGFILE from the parent folder of DYALOGCITAWORKDIR
           cfg←⎕NS''
           cfg.Settings←⎕NS''
