@@ -726,7 +726,7 @@
      
                           ⍝cfg.Settings.RunUCMD←'ExecuteLocalTest ',FixPath sdir,repo,'/',∊1↓⎕NPARTS cita_file
                           configfile←sdir,'cita.dcfg'
-                        configfile.RunUCMD←ExecuteLocalTest ',1 FixPath sdir,repo,'/',(∊1↓⎕NPARTS cita_file),
+                        configfile.RunUCMD←'ExecuteLocalTest ',1 FixPath sdir,repo,'/',(∊1↓⎕NPARTS cita_file)
                           (⊂(⎕JSON⍠'Compact' 0)cfg)⎕NPUT configfile
      
                           cmdline_s←cmdline,' USERCONFIGFILE=',FixPath configfile ⍝ passing that path w/o quotes, so there should never be blanks in it! Want to avoid hazzle with
