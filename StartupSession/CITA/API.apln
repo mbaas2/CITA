@@ -695,7 +695,7 @@
           aplv←⎕JSON 1⊃⎕NGET home,'dyalogversions.json'
           fapl←⊃∪/FilterAPLVersions¨(⊆cfg.dyalogversions),¨⊂' -list=',¯1↓∊aplv,¨','   ⍝ all versions we need to run on
      
-          FixPath←{('u:/' 'U:/'⎕R'/devt/' '/devt/'⍠'Regex' 0)⍵}   ⍝ translate U: to /devt/
+          FixPath←{a←0 ⋄ ~a: ('u:/' 'U:/'⎕R'/devt/' '/devt/'⍠'Regex' 0)⍵ ⋄ ('u:/' 'U:/'⎕R'${DEVT}' '${DEVT}'⍠'Regex' 0)⍵}   ⍝ translate U: to /devt/
 ⍝ use a CONFIGFILE from the parent folder of DYALOGCITAWORKDIR
           cfg←⎕NS''
           cfg.Settings←⎕NS''
@@ -726,11 +726,12 @@
      
                           ⍝cfg.Settings.RunUCMD←'ExecuteLocalTest ',FixPath sdir,repo,'/',∊1↓⎕NPARTS cita_file
                           configfile←sdir,'cita.dcfg'
+                        configfile.RunUCMD←ExecuteLocalTest ',1 FixPath sdir,repo,'/',(∊1↓⎕NPARTS cita_file),
                           (⊂(⎕JSON⍠'Compact' 0)cfg)⎕NPUT configfile
      
                           cmdline_s←cmdline,' USERCONFIGFILE=',FixPath configfile ⍝ passing that path w/o quotes, so there should never be blanks in it! Want to avoid hazzle with
                           cmdline_s,←' CITA_Log=',FixPath sdir,'CITA.log'
-                          cmdline_s,←' RunUCMD="ExecuteLocalTest ',FixPath sdir,repo,'/',(∊1↓⎕NPARTS cita_file),'"'
+                        ⍝   cmdline_s,←' RunUCMD="ExecuteLocalTest ',FixPath sdir,repo,'/',(∊1↓⎕NPARTS cita_file),'"'
      
                           stages,←('%VERSION%' '%CMDLINE%'⎕R(⍕version)(cmdline_s)⍠'Regex' 0)stage
                       :EndFor

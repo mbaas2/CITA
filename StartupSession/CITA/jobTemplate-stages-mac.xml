@@ -24,6 +24,9 @@
                 cmdline = '%CMDLINE%'
                 if ("${env.NODE_NAME}"=="mac3") {
                   cmdline = cmdline.replace("/devt/","/Volumes/devt/")
+                  env.DEVT="/Volumes/devt/"
+                } else {
+                  env.DEVT="/devt/
                 }
                 echo "Launching $path $cmdline "
                 sh "$path $cmdline"
