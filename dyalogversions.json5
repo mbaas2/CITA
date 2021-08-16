@@ -1,0 +1,26 @@
+{
+    versions: [
+        "17.1",
+        "18.0",
+        "18.1",
+        "18.2"
+    ],
+    editions: ["classic" , "unicode"],
+    bits: [32,64],
+    platforms: [
+        "mac",
+        "pi",
+        "win",
+        "linux",
+        "aix"
+    ],
+    platforms_editions: {
+        mac: ["unicode"],
+        pi: ["unicode"]
+    },
+    platforms_bits: {
+        mac: [64],
+        pi: [32],
+        linux: [64]
+    }
+}
