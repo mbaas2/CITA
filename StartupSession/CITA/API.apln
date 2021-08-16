@@ -711,7 +711,8 @@
               ⍝jenk.Labels←↓'F4.1,< >'⎕FMT fapl  ⍝ TODO: unsure if Labels is best for this - or explicit DYALOGVERSIONS....?
      
           :If ⎕NEXISTS file←'./jobTemplate.xml'
-          :OrIf ⎕NEXISTS file←(1⊃⎕NPARTS 1⊃2 ⎕ATX 1⊃⎕SI),'jobTemplate.xml'
+⍝          :OrIf ⎕NEXISTS file←(1⊃⎕NPARTS 1⊃2 ⎕ATX 1⊃⎕SI),'jobTemplate.xml'
+          :OrIf ⎕NEXISTS file←##.Home,'StartupSession/CITA/jobTemplate.xml'
               job←1⊃⎕NGET file
               stages←''
               :For platform :In 'mac' 'win' 'linux' ⍝ TODO: maybe CITA.json5 should specify the platforms?
@@ -721,14 +722,15 @@
                       :For version :In fapl
                           sdir←xinO,platform,'_',version,'/'      ⍝ config & results for that stage
                           3 ⎕MKDIR sdir,repo
-                          sdir⎕NCOPY xinO,repo,'/'          ⍝ copy repository into that folder
+                          sdir ⎕NCOPY xinO,repo,'/'          ⍝ copy repository into that folder
      
-                          cfg.Settings.RunUCMD←'ExecuteLocalTest ',FixPath sdir,repo,'/',∊1↓⎕NPARTS cita_file
-                          cfg.Settings.CITA_Log←FixPath sdir,'CITA.log'
+                          ⍝cfg.Settings.RunUCMD←'ExecuteLocalTest ',FixPath sdir,repo,'/',∊1↓⎕NPARTS cita_file
                           configfile←sdir,'cita.dcfg'
                           (⊂(⎕JSON⍠'Compact' 0)cfg)⎕NPUT configfile
      
                           cmdline_s←cmdline,' USERCONFIGFILE=',FixPath configfile ⍝ passing that path w/o quotes, so there should never be blanks in it! Want to avoid hazzle with
+                          cmdline_s,←' ExecuteLocalTest ',FixPath sdir,repo,'/',∊1↓⎕NPARTS cita_file
+                          cmdline_s,←' CITA_Log=',FixPath sdir,'CITA.log'
                           cmdline_s←FixPath cmdline_s  ⍝ TODO: this may need to be improved with a config-setting for mappings
      
                           stages,←('%VERSION%' '%CMDLINE%'⎕R(⍕version)(cmdline_s)⍠'Regex' 0)stage
