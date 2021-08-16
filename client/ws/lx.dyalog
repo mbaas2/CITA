@@ -72,7 +72,7 @@
              rc←20
          :Else
              rc←21
-             ⎕←'Error during ',(1⊃⎕xSI).,': ',(⍎'(⎕json⍠''Compact''0) ⎕DMX')    ⍝ avoid problems with 12.1 which can't tokenize ⎕DMX (saved in 12.1, executed in 18)
+             ⎕←'Error during ',(1⊃⎕xSI).,': ',(⍎'(⎕json⎕OPT''Compact''0) ⎕DMX')    ⍝ avoid problems with 12.1 which can't tokenize ⎕DMX (saved in 12.1, executed in 18)
              ⎕←'en=',⎕EN
              subj HandleError' ]',cmd
          :EndTrap

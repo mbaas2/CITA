@@ -1,0 +1,24 @@
+stage ('aix_%EDITION%%BITS%_%VERSION%_%EXTRA%') {
+  agent{
+    label "%CITA_VERSION%&&aix&&%VERSION%"
+  }
+  steps {                
+    script {
+      echo "NODE_NAME = ${env.NODE_NAME}"            
+      path = "/opt/mdyalog/%VERSION%/%BITS%/%EDITION%/%EXTRA%/mapl"
+      exists = fileExists(path)          
+      if (exists) {
+        echo "PLATFORM=pi, path=${path}: File exists!"
+      } else {
+        echo "Found no interpreter for ${env.NODE_NAME}. Labels: ${env.NODE_LABELS}"
+        path = ""
+      }
+      if (path != "" ){
+        cmdline = '%CMDLINE%'
+        echo "Launching $path $cmdline "
+        env.DEVT="/devt/"
+        sh "$path $cmdline"
+      } 
+    }
+  }
+}

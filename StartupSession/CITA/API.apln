@@ -564,7 +564,7 @@
       ns.testMat←resTab
     ∇
 
-    ∇ {ns}←TestRepo arg;fld;fl;loc;xin;rc;specs;R;step;specsObj;lg;cnt;list;showedIO;log;del;list2;v;xin∆;jlog;cfg;rcTest;interpreters;interpreter;t;int;resTab;plus;V;B;b;E;xinO;lint;dot;item;wd;args;url;sha;stages;cmdline_s;configfile;sdir;repo;platform;version;fapl;file_s;nlf;stage;file;job;cmdline;FixPath;rc1;aplv;log1;res;org;dcwd;home;hasCITA;lb;jenk;p1
+    ∇ {ns}←TestRepo arg;fld;fl;loc;xin;rc;specs;R;step;specsObj;lg;cnt;list;showedIO;log;del;list2;v;xin∆;jlog;cfg;rcTest;interpreters;interpreter;t;int;resTab;plus;V;B;b;E;xinO;lint;dot;item;wd;args;url;sha;stages;cmdline_s;configfile;sdir;repo;platform;version;fapl;file_s;nlf;stage;file;job;cmdline;FixPath;rc1;aplv;log1;res;org;dcwd;home;hasCITA;lb;jenk;p1;EXTRAS;BITS;EDITIONS;EXTRA_i;EXTRA;EXTRAS_i;EDITION;dyalogversions
 ⍝:: Test a remote GitHub-repository
 ⍝?: Test a remote GitHub-repository
 ⍝?:
@@ -717,18 +717,25 @@
               job←1⊃⎕NGET file
               stages←''
               :For platform :In dyalogversions.platforms  ⍝  'mac' 'pi'  ⍝ 'win' 'linux' ⍝ TODO: maybe CITA.json5 should specify the platforms?
-                  
+     
                   EDITIONS←dyalogversions.editions
-                  :If 9=dyalogversions.⎕NC 'platforms_editions'
-                  :andIf 2=dyalogversions.platforms_editions.⎕NC platform
+                  :If 9=dyalogversions.⎕NC'platforms_editions'
+                  :AndIf 2=dyalogversions.platforms_editions.⎕NC platform
                       EDITIONS←⊆dyalogversions.platforms_editions.⍎platform
                   :EndIf
-                  
+     
                   BITS←dyalogversions.bits
-                  :If 9=dyalogversions.⎕NC 'platforms_bits'
-                  :andIf 2=dyalogversions.platforms_bits.⎕NC  platform
+                  :If 9=dyalogversions.⎕NC'platforms_bits'
+                  :AndIf 2=dyalogversions.platforms_bits.⎕NC platform
                       BITS←⊆dyalogversions.platforms_bits⍎platform
                   :EndIf
+     
+                  EXTRAS←''
+                  :If 9=dyalogversions.⎕NC'platforms_extras'
+                  :AndIf 2=dyalogversions.platforms_extras.⎕NC platform
+                      EXTRAS←⊆dyalogversions.platforms_extras⍎platform
+                  :EndIf
+     
                   ⎕←platform,': ',EDITIONS,' ',BITS
                   file_s←(∊2↑⎕NPARTS file),'-stages-',platform,'.xml'  ⍝ the stage-file for that platform
                   :If ⎕NEXISTS file_s
@@ -736,19 +743,29 @@
                       :For version :In fapl
                           :For EDITION :In EDITIONS
                               :For BITS :In BITS
-                  ⎕←⎕ts,platform,' ',EDITION,BITS
-                                  sdir←xinO,platform,'_',version,'_',EDITION[1],(⍕BITS),'/'      ⍝ config & results for that stage
-                                  3 ⎕MKDIR sdir,repo
-                                  sdir ⎕NCOPY xinO,repo,'/'          ⍝ copy repository into that folder
+                                  :For EXTRA_i :In 0,⍳≢EXTRAS
+                                      :If EXTRA_i=0
+                                          EXTRA←''
+                                          :If 0<≢EXTRAS
+                                              :Continue
+                                          :EndIf
+                                      :Else 
+                                       EXTRA←EXTRA_i⊃EXTRAS
+                                      :EndIf
+                                      ⎕←⎕TS,platform,' ',version,EDITION,BITS,EXTRA
+                                      sdir←xinO,platform,'_',version,'_',EDITION[1],(⍕BITS),((0<≢EXTRAS)/'_',EXTRA),'/'      ⍝ config & results for that stage
+                                      3 ⎕MKDIR sdir,repo
+                                      sdir ⎕NCOPY xinO,repo,'/'          ⍝ copy repository into that folder
      
-                                  configfile←sdir,'cita.dcfg'
-                                  cfg.Settings.RunUCMD←'ExecuteLocalTest ',1 FixPath sdir,repo,'/',(∊1↓⎕NPARTS cita_file)
-                                  (⊂(⎕JSON⍠'Compact' 0)cfg)⎕NPUT configfile
+                                      configfile←sdir,'cita.dcfg'
+                                      cfg.Settings.RunUCMD←'ExecuteLocalTest ',1 FixPath sdir,repo,'/',(∊1↓⎕NPARTS cita_file)
+                                      (⊂(⎕JSON⍠'Compact' 0)cfg)⎕NPUT configfile
      
-                                  cmdline_s←cmdline,' USERCONFIGFILE=',FixPath configfile ⍝ passing that path w/o quotes, so there should never be blanks in it! Want to avoid hazzle with
-                                  cmdline_s,←' CITA_Log=',FixPath sdir,'CITA.log'
+                                      cmdline_s←cmdline,' USERCONFIGFILE=',FixPath configfile ⍝ passing that path w/o quotes, so there should never be blanks in it! Want to avoid hazzle with
+                                      cmdline_s,←' CITA_Log=',FixPath sdir,'CITA.log'
      
-                                  stages,←('%VERSION%' '%CMDLINE%' '%BITS%' '%EDITION%'⎕R(⍕version)(cmdline_s)(⍕BITS)(EDITION)⍠'Regex' 0)stage
+                                      stages,←('%VERSION%' '%CMDLINE%' '%BITS%' '%EDITION%' '%EXTRA%'⎕R(⍕version)(cmdline_s)(⍕BITS)(EDITION)(EXTRA)⍠'Regex' 0)stage
+                                  :EndFor
                               :EndFor
                           :EndFor
                       :EndFor
