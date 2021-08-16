@@ -26,7 +26,7 @@
                   cmdline = cmdline.replace("/devt/","/Volumes/devt/")
                 }
                 echo "Launching $path $cmdline "
-                sh "$path+ $cmdline"
+                sh "$path $cmdline"
               }
             }
           }
