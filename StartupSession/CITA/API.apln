@@ -466,6 +466,7 @@
                       ⍝ ⎕← interpreter.id,' ',step
                       ⍝ (⎕lc[1]+1)⎕stop 1⊃⎕si
                       (rc jlog)←R←step _RunJob cfg specs interpreter
+     ⎕←(1⊃⎕si),'[',(⍕1⊃⎕lc),'] ran job'
                       :If (⊂step)∊'setup' 'test'
                           rcTest←rc
                       :EndIf
@@ -932,13 +933,17 @@
       :EndSelect
       cmd,←' ',cfg
       exited←¯1
+     ⎕←(1⊃⎕si),'[',(⍕1⊃⎕lc),'] Creating new APLProcess. dws=',dws,', cmd=',cmd,', xin=',xin
       proc←⎕NEW ##.APLProcess(dws cmd(interpreter{0::0 ⋄ ⍺⍎⍵}'exe')'' ''xin)
       ai3←⎕AI[3]
+     ⎕←(1⊃⎕si),'[',(⍕1⊃⎕lc),'] Waiting till its running'
       :While ~proc.IsRunning proc.Proc.Id ⋄ ai3←⎕AI[3] ⋄ :EndWhile   ⍝ wait until process has started
+     ⎕←(1⊃⎕si),'[',(⍕1⊃⎕lc),'] its running now - waiting till its finished'
       :Repeat
           ⎕DL 1⌊specs.secondstimeout×1000  ⍝ delay one second by default, but allow smaller (if someone challenges our timeouts...)
       :Until (ai31←⎕AI[3])≥⌊ai3+specs.secondstimeout×1000
       :OrIf exited←proc.HasExited
+     ⎕←(1⊃⎕si),'[',(⍕1⊃⎕lc),'] DONE! Checking results...'
       WSFULL←0  ⍝ has the test hit a WS FULL?
       :If isDTest
           :If ⎕NEXISTS TestLog
