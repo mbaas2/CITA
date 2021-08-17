@@ -711,7 +711,7 @@
           cfg.Settings←⎕NS''
           cfg.Settings.RIDE_INIT←'HTTP:*:4505'
           (xinO,'CITA/client')(⎕NCOPY⍠'IfExists' 'Replace')'c:\git\CITA\client\RunCITA.dws '  ⍝ TEMP TODO: remove!!!
-          cmdline←'+s 'FixPath xinO,'CITA/client/RunCITA.dws'
+          cmdline←'+s ',FixPath xinO,'CITA/client/RunCITA.dws'
           cmdline,←' ENABLE_CEF=0'
           cmdline,←' DYALOGCITASRCDIR=',FixPath xinO,'CITA'
           cmdline,←' DYALOGSTARTUPSE=',FixPath xinO,'CITA/StartupSession/'
@@ -936,6 +936,9 @@
       cmd,←' ',cfg
       exited←¯1
      ⎕←(1⊃⎕si),'[',(⍕1⊃⎕lc),'] Creating new APLProcess. dws=',dws,', cmd=',cmd,', xin=',xin
+     ⎕trap←0'S'⋄600⌶1
+     ∘∘∘
+     600⌶0
       proc←⎕NEW ##.APLProcess(dws cmd(interpreter{0::0 ⋄ ⍺⍎⍵}'exe')'' ''xin)
       ai3←⎕AI[3]
      ⎕←(1⊃⎕si),'[',(⍕1⊃⎕lc),'] Waiting till its running'
