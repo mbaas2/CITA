@@ -131,6 +131,8 @@
               cmd←(~0∊⍴WorkingDir)/'cd ',WorkingDir,'; '
               cmd,←'{ ',args,' ',Exe,' +s -q ',ws,' -c APLppid=',z,' </dev/null >',output,' 2>&1 & } ; echo $!'
               pid←_SH cmd
+              ⎕←'Launched ',cmd 
+              ⎕←'pid=',pid
               Proc.Id←pid
               Proc.HasExited←HasExited
           :EndIf
@@ -166,6 +168,7 @@
       :Else
           r←tonum⊃_SH'echo $PPID'
       :EndIf
+      ⎕←'GetCurrentProcessId returning ',⍕r
     ∇
 
     ∇ r←GetCurrentExecutable;⎕USING;t;gmfn
@@ -434,6 +437,7 @@
       r←0
       →(r←' '∨.≠txt←UNIXGetShortCmd pid)↓0
       r←~∨/'<defunct>'⍷txt
+      'UNIXISRunning ',(⍕pid),', r=',r
     ∇
 
     ∇ {r}←UNIXIssueKill(signal pid)
@@ -446,15 +450,24 @@
       :EndIf
     ∇
 
-    ∇ r←UNIXGetShortCmd pid;cmd
+    ∇ r←UNIXGetShortCmd pid;cmd;ps
       ⍝ Retrieve sort form of cmd used to start process <pid>
-      cmd←(1+IsMac)⊃'cmd' 'command'
-      cmd←'ps -o ',cmd,' -p ',(⍕pid),' 2>/dev/null ; exit 0'
+      cmd←(1+IsMac∨'AIX'≡Platform)⊃'cmd' 'command'
+      ps←'ps ',⍨('AIX'≡3↑⊃'.'⎕WG'APLVersion')/'/usr/sysv/bin/'    ⍝ Must use this ps on AIX
+      cmd←ps,' -o ',cmd,' -p ',(⍕pid),'; exit 0'
+    ⍝   cmd←ps,' -o ',cmd,' -p ',(⍕pid),' 2>/dev/null ; exit 0'
       :If {2::0 ⋄ IsSsh}'' ⍝ instance?
           ∘∘∘
       :Else
-          r←⊃1↓⎕SH cmd
+          r←⎕SH cmd
       :EndIf
+      ⎕←'Output of UNIXGetShortCmd with pid=',(⍕pid),' and cmd=',cmd,⎕ucs 13
+      ⎕←'r1=',r
+      r←⊃1↓r
+      ⎕←'r2=',r
+      ⎕←'This was called from '⋄⎕si{(↑⍺),'<[>,I5,<]>'⎕fmt ⍵}⎕lc
+      ⎕←'End of output'
+      
     ∇
 
     ∇ r←_PS cmd;ps
