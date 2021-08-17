@@ -709,8 +709,9 @@
 ⍝ use a CONFIGFILE from the parent folder of DYALOGCITAWORKDIR
           cfg←⎕NS''
           cfg.Settings←⎕NS''
+          cfg.Settings.RIDE_INIT←'HTTP:*:4505'
           (xinO,'CITA/client')(⎕NCOPY⍠'IfExists' 'Replace')'c:\git\CITA\client\RunCITA.dws '  ⍝ TEMP TODO: remove!!!
-          cmdline←FixPath xinO,'CITA/client/RunCITA.dws'
+          cmdline←'+s 'FixPath xinO,'CITA/client/RunCITA.dws'
           cmdline,←' ENABLE_CEF=0'
           cmdline,←' DYALOGCITASRCDIR=',FixPath xinO,'CITA'
           cmdline,←' DYALOGSTARTUPSE=',FixPath xinO,'CITA/StartupSession/'
@@ -725,6 +726,7 @@
           :OrIf ⎕NEXISTS file←##.Home,'StartupSession/CITA/jobTemplate.xml'
               job←1⊃⎕NGET file
               stages←''
+              
               :For platform :In dyalogversions.platforms  ⍝  'mac' 'pi'  ⍝ 'win' 'linux' ⍝ TODO: maybe CITA.json5 should specify the platforms?
      
                   EDITIONS←dyalogversions.editions
