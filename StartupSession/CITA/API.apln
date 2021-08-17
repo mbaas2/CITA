@@ -936,9 +936,9 @@
       cmd,←' ',cfg
       exited←¯1
      ⎕←(1⊃⎕si),'[',(⍕1⊃⎕lc),'] Creating new APLProcess. dws=',dws,', cmd=',cmd,', xin=',xin
-     ⎕trap←0'S'⋄600⌶1
-     ∘∘∘
-     600⌶0
+    ⍝  ⎕trap←0'S'⋄600⌶1
+    ⍝  ∘∘∘
+    ⍝  600⌶0
       proc←⎕NEW ##.APLProcess(dws cmd(interpreter{0::0 ⋄ ⍺⍎⍵}'exe')'' ''xin)
       ai3←⎕AI[3]
      ⎕←(1⊃⎕si),'[',(⍕1⊃⎕lc),'] Waiting till its running'
