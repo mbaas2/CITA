@@ -276,13 +276,14 @@
 ⍝A?: Log
 ⍝A?: testMat:  Matrix - Tests x Interpreters with single-letter result of corresponding test.
 ⍝A?:           First row/col has titles of tests and interpreters
-     
+     ⎕←(1⊃⎕si),'[',(⍕1⊃⎕lc),']'
       _InitUCMDs  ⍝ yeah, this is ambigous - but the API-fns rely on ##.Home being set up. May find a better way to name or address this...
       ns←⎕NS''
       res←¯1  ⍝ res=¯1 indicates no test were run!
       Log←''
       arg←##._Parse arg  ⍝ ensure its a parsed arg...
       fl←∊1 ⎕NPARTS(1 ''##._getArg 1 arg)  ⍝ fld=folder, fl=path to a CITA.json
+     ⎕←(1⊃⎕si),'[',(⍕1⊃⎕lc),'] fl = ',fl
       ('File or directory "',fl,'" not found')⎕SIGNAL(~⎕NEXISTS fl)/700
       fl,←(1=∊1 ⎕NINFO fl)/('\/'∊⍨⊢/fl)↓'/CITA.JSON*'  ⍝ we also accept folders as arg and append the filespec automatically (since we're expecting one specific file anyway)
      
@@ -296,6 +297,7 @@
           ns.Log←'Workdir "',xinO,'" not found!'
           →0
       :EndIf
+     ⎕←(1⊃⎕si),'[',(⍕1⊃⎕lc),']xinO=',xinO
      
       int←0  ⍝ count of interpreter
       interpreters←,0  ⍝ default (signals to APLProcess to use current)
@@ -306,6 +308,8 @@
           ns.(rc Log)←700 'CITA.JSON[5] not found'
           →0
       :EndIf
+     ⎕←(1⊃⎕si),'[',(⍕1⊃⎕lc),']'
+
       (rc specsObj lg)←_GetTestSpecs fl
       :If rc≠0
           ns.(rc Log)←701('Error processing specs in "',fl,'": ',⍕lg)
@@ -328,11 +332,13 @@
       :EndIf
      ⍝ (⎕lc[1]+1)⎕stop 1⊃⎕si
       :For interpreter :In interpreters
+     ⎕←(1⊃⎕si),'[',(⍕1⊃⎕lc),'] interpreter=',interpreter
      
           xin∆←xinO,{0::⍵ ⋄ interpreter.id,'_'}''
      
      
           :If interpreter≡0
+     ⎕←(1⊃⎕si),'[',(⍕1⊃⎕lc),']'
               t←{(⍕+/10 1×2↑2⊃'.'⎕VFI 2⊃⍵),('CU'[1+80=⎕DR' ']),(1+'64'≡¯2↑1⊃⍵)⊃'32' '64'}'.'⎕WG'aplversion'
           :Else
               t←interpreter.id
@@ -417,6 +423,7 @@
                   :EndIf
               :EndIf
               resTab[cnt+1;int+1]←' '
+     ⎕←(1⊃⎕si),'[',(⍕1⊃⎕lc),']'
      
               log←''
               xin←xin∆,(⍕specs.id),'/'
@@ -450,6 +457,7 @@
      
               R←0 ''
               :For step :In 'setup' 'test' 'teardown'
+     ⎕←(1⊃⎕si),'[',(⍕1⊃⎕lc),'] step=',step
                   :If step≡'test'
                   :AndIf 0=specs.⎕NC step
                       R←4 'Missing entry for step "test"'
@@ -759,10 +767,11 @@
      
                                       configfile←sdir,'cita.dcfg'
                                       cfg.Settings.RunUCMD←'ExecuteLocalTest ',1 FixPath sdir,repo,'/',(∊1↓⎕NPARTS cita_file)
+                                    cfg.Settings.CITA_Log←1 FixPath sdir,'CITA.log'
                                       (⊂(⎕JSON⍠'Compact' 0)cfg)⎕NPUT configfile
      
                                       cmdline_s←cmdline,' USERCONFIGFILE=',FixPath configfile ⍝ passing that path w/o quotes, so there should never be blanks in it! Want to avoid hazzle with
-                                      cmdline_s,←' CITA_Log=',FixPath sdir,'CITA.log'
+                                    ⍝   cmdline_s,←' CITA_Log=',FixPath sdir,'CITA.log'
      
                                       stages,←('%VERSION%' '%CMDLINE%' '%BITS%' '%EDITION%' '%EXTRA%'⎕R(⍕version)(cmdline_s)(⍕BITS)(EDITION)(EXTRA)⍠'Regex' 0)stage
                                   :EndFor
