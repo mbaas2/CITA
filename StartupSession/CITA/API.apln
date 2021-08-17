@@ -710,10 +710,11 @@
           cfg←⎕NS''
           cfg.Settings←⎕NS''
           cfg.Settings.RIDE_INIT←'HTTP:*:4505'
+          cfg.Settings.DYALOGCITASRCDIR←FixPath xinO,'CITA'
+
           (xinO,'CITA/client')(⎕NCOPY⍠'IfExists' 'Replace')'c:\git\CITA\client\RunCITA.dws '  ⍝ TEMP TODO: remove!!!
           cmdline←'+s ',FixPath xinO,'CITA/client/RunCITA.dws'
           cmdline,←' ENABLE_CEF=0'
-          cmdline,←' DYALOGCITASRCDIR=',FixPath xinO,'CITA'
           cmdline,←' DYALOGSTARTUPSE=',FixPath xinO,'CITA/StartupSession/'
           cmdline,←' COMMANDFOLDER=',FixPath xinO,'CITA/SALT/spice/'
           ⍝cmdline,← FixPath xinO,'CITA/StartupSession/'
@@ -771,10 +772,12 @@
                                       configfile←sdir,'cita.dcfg'
                                       cfg.Settings.RunUCMD←'ExecuteLocalTest ',1 FixPath sdir,repo,'/',(∊1↓⎕NPARTS cita_file)
                                     cfg.Settings.CITA_Log←1 FixPath sdir,'CITA.log'
+                                    cfg.Settings.DEFAULT_PW←400
+                                    cfg.Settings.LOG_FILE←1 FixPath sdir,'CITA_Sessionlog.dlf'
                                       (⊂(⎕JSON⍠'Compact' 0)cfg)⎕NPUT configfile
      
                                       cmdline_s←cmdline,' USERCONFIGFILE=',FixPath configfile ⍝ passing that path w/o quotes, so there should never be blanks in it! Want to avoid hazzle with
-                                    ⍝   cmdline_s,←' CITA_Log=',FixPath sdir,'CITA.log'
+
      
                                       stages,←('%VERSION%' '%CMDLINE%' '%BITS%' '%EDITION%' '%EXTRA%'⎕R(⍕version)(cmdline_s)(⍕BITS)(EDITION)(EXTRA)⍠'Regex' 0)stage
                                   :EndFor

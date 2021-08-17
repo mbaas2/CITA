@@ -25,6 +25,7 @@
  ⍝⎕←⎕se.UCMD'-?'
 ⍝  ⎕←2⎕nq'.' 'GetEnvironment' 'COMMANDFOLDER'
 ⍝  ⎕←'exists=',⍕⍎'⎕nexists ''',(2⎕nq'.' 'GetEnvironment' 'COMMANDFOLDER'),''''
+⎕pw←400
   :endif
  ⍝ set up ⎕SE._cita
  ⎕SE.UCMD'GetTools4CITA ',⍕⎕this

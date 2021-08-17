@@ -360,7 +360,13 @@
       :If IsWin∨{2::0 ⋄ IsSsh}''
           r←{0::⍵ ⋄ Proc.HasExited}1
       :Else
+      :if 9=⎕nc'Proc'
+      :andif 2=Proc.⎕nc'Id'
           r←~UNIXIsRunning Proc.Id ⍝ AWS
+          :else 
+          r←0   
+          ⎕←'Avoided VALUE ERROR on Proc.Id in "HasExited", called by ',(2⊃⎕si),'[',(⍕2⊃⎕lc),']'
+          :endif
       :EndIf
     ∇
 
