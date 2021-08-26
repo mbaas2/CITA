@@ -8,11 +8,10 @@
       srv←⎕NEW #.Jarvis
       srv.CodeLocation←#.CITA_Server
       srv.Debug←1
-      srv.Paradigm←'JSON'
-     
+      srv.Paradigm←'JSON'     
       srv.Port←80
-      ⎕←'Starting...'
       msg←srv.Start
+      LOGDIR←Home,'logs/'
      
     ∇
 
@@ -49,9 +48,9 @@
           :EndIf
       :EndIf
      
-     
-      (⊂log)⎕NPUT ⎕←Home,,'<req>,ZI4,ZI2,ZI2,<_>,ZI2,ZI2,ZI3,<.log>'⎕FMT 1 6⍴⎕TS
-     
+     :if ⎕nexists LOGDIR  ⍝ only write a logfile if logdir exists
+      (⊂log)⎕NPUT ⎕←LOGDIR,,'<req>,ZI4,ZI2,ZI2,<_>,ZI2,ZI2,ZI3,<.log>'⎕FMT 1 6⍴⎕TS
+     :endif
       res←'Processed your request.'
     ∇
 
