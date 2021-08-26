@@ -1,0 +1,71 @@
+:namespace CITA_Server
+    nl←⎕ucs 13
+
+    ∇ Run nul
+      ⎕SE.SALT.Load Home,'Jarvis.dyalog -target=#'
+      ⎕SE.SALT.Load Home,'Crypt.dyalog -target=#'
+      #.Crypt.Init Home
+      srv←⎕NEW #.Jarvis
+      srv.CodeLocation←#.CITA_Server
+      srv.Debug←1
+      srv.Paradigm←'JSON'
+     
+      srv.Port←80
+      ⎕←'Starting...'
+      msg←srv.Start
+     
+    ∇
+
+    getHeader←{2⊃⍵[⍵[;1]⍳⊆⍺;]}
+    hash←{#.Crypt.(HASH_SHA256 Hash (⎕ucs'UTF-8'⎕ucs ⍵))}
+
+
+    ∇ res←{req}WebHook arg;log;event;sig;sec;secH;repo
+      log←'─── QueryParams ─── ',nl,,req.QueryParams,nl
+      log,←'─── Headers ───',nl,,⍕req.Headers,nl
+      log,←'─── Payload: ───',nl
+      log,←((⎕JSON⍠'Compact' 0)arg),nl
+     
+      event←'x-github-event'getHeader req.Headers
+      log,←'event=',event,nl
+      sig←'x-hub-signature-256'getHeader req.Headers
+      sec←2 ⎕NQ'.' 'GetEnvironment' 'GITHUB_SECRET'
+      :If sig≢'sha256=',⎕c stringToHex (#.Crypt.HMAC_SHA256 sec)#.Crypt.Hash req.Body
+          log,←'Could not verify secret - will not do anything on our repos!',nl
+          ∘∘∘
+      :Else
+          log,←'Secret was verified!'
+          :If 9=arg.⎕NC'repository'
+          :AndIf 2=arg.repository.⎕NC'url'
+              repo←arg.repository.url
+              log,←'repo=',repo,nl
+              :If ⎕SE.CITA.GitHub.HasCITA repo
+                  log,←'Found CITA-config - normally we would test the repo now!'
+              :Else
+                  log,←'*** Repo does not have CITA.json[5]'
+              :EndIf
+          :Else
+              log,←'*** Could not identify repository',nl
+          :EndIf
+      :EndIf
+     
+     
+      (⊂log)⎕NPUT ⎕←Home,,'<req>,ZI4,ZI2,ZI2,<_>,ZI2,ZI2,ZI3,<.log>'⎕FMT 1 6⍴⎕TS
+     
+      res←'Processed your request.'
+    ∇
+
+    ∇ R←Home
+      :If 0=⎕NC'_Home'
+          :If '18.1'≡4↑2⊃'.'⎕WG'APLVersion'
+              _Home←1⊃⎕NPARTS 50 ⎕ATX 1⊃⎕SI
+          :Else
+              _Home←1⊃⎕NPARTS 4⊃5179⌶1⊃⎕SI
+          :EndIf
+      :EndIf
+      R←_Home
+    ∇
+
+
+
+:endnamespace
