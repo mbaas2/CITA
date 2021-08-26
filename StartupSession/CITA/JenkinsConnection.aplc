@@ -192,13 +192,13 @@
  ⍝     ⎕←'file=',file
 ⍝      (⎕lc[1]+1)⎕stop 1⊃⎕si
       bin←('&(?![a-z]*;)'⎕R'&amp;')bin
-      bin←('"' '''' '%cmdline%'⎕R'&quot;' '&apos;'Commandline⍠('Regex' 0))bin
+      bin←('"' '''' '%cmdline%' '<' '>'⎕R'&quot;' '&apos;' Commandline'&lt;' '&gt;'⍠('Regex' 0))bin
 
       bin←binPre,bin,binPost
       res←bin post(url(1 2⍴'Content-Type' 'application/xml'))
-     
-      bin←('&quot;' '&apos;' '&amp;'⎕R(,¨'"''&')⍠'Regex' 0)bin
-      (⊂bin)⎕NPUT(file,'.submitted')1
+      (⊂bin)⎕NPUT(file,'.submitted')1     ⍝ save script as it was submitted
+       bin←('&quot;' '&apos;' '&amp;'⎕R(,¨'"''&')⍠'Regex' 0)bin
+      (⊂bin)⎕NPUT(file,'.subm.rdbl')1     ⍝ a human-readable form
      
       :If 0≠⊃res
       :AndIf debug

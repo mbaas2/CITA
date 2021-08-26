@@ -84,13 +84,14 @@
       :If 0≠res.rc ⋄ msg←'Error: rc≠0!',(⎕UCS 13),⍕res ⋄ :EndIf
     ∇
 
-    ∇ (R msg)←target RetrieveBlob url;h;res;dir;tie;t
+    ∇ (R msg)←target RetrieveBlob url;h;res;dir;tie;t;j
   ⍝ get specified file and save it as ⍺
   ⍝ R indicates success (=0) or failure (=1)
   ⍝ msg either has the fully qualified filename or the error-msg.
       R←1
       h←_gethc('https://api.github.com/repos/',org,'/',repo,'/git/blobs/',url)('Accept' 'application/vnd.github.v3+json')
       :If 0=(res←h.Run).rc
+      :andif 200=res.HttpStatus
           msg←target←∊1 ⎕NPARTS target
           :If ~⎕NEXISTS dir←1⊃⎕NPARTS target
               3 ⎕MKDIR dir

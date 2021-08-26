@@ -1,5 +1,8 @@
 ﻿ lx arg;v;Env;subj;ext;r;z;s;cmd;y;log;wsFullReport;⎕RL;⎕ML;⎕IO;rc;path;NL;CITA_Log
- ⍝ OFF with returncode 42: all is well, 43: error, 44: WS FULL
+ ⍝ OFF with returncode 42: all is well, 43: error, 44: WS
+ :If 15<2 1⊃'.'⎕VFI 2⊃'.'⎕WG'aplversion'
+     2704⌶1   ⍝ save CONTINUE on "hang-up signals"  (suggested by AS, 210819)
+ :EndIf
  :If 0∧arg=0  ⍝ setup a temp ns in ⎕SE and execute things there (to avoid problems with tests doing "DBuild -c")
      t←'tmp' ⋄ cnt←''
      :While 9=⎕SE.⎕NC t,cnt ⍝
@@ -10,25 +13,27 @@
      {2 ⎕NQ'⎕se' 'Keypress'⍵}¨ns,'.lx 1',⊂'ER'   ⍝ ensure that we execute lx by triggering a "clean call"
      →0
  :EndIf
- :if 0=⎕se.⎕nc'UCMD'
-   d←2⎕nq'.' 'GetEnvironment' 'DYALOG'
+ :If 0=⎕SE.⎕NC'UCMD'
+     ⎕←'Loading session'
+     d←2 ⎕NQ'.' 'GetEnvironment' 'DYALOG'
    ⍝⎕se.File←'/opt/mdyalog/18.0/64/unicode/default.dse'
-   ⎕se.File←d,'/default.dse'
-  2⎕nq'⎕se' 'FileRead'
-  ⎕dl 1 ⍝ make sure we don't have a timing issue
-⍝    ⎕←'cmddir=',⎕se.SALT.Set'cmddir'
-⍝    ⎕←'COMMANDFOLDER=',⎕se.Dyalog.Utils.Config'COMMANDFOLDER'
-⍝    ⎕se.SALT.Set'cmddir ',⎕se.Dyalog.Utils.Config'COMMANDFOLDER'
-⍝ ⎕←'cmddir=',⎕se.SALT.Set'cmddir'
-    ⎕SE.Dyalog.Callbacks.WSLoaded 1 
-⍝  ⎕se.UCMD'ureset'
- ⍝⎕←⎕se.UCMD'-?'
-⍝  ⎕←2⎕nq'.' 'GetEnvironment' 'COMMANDFOLDER'
-⍝  ⎕←'exists=',⍕⍎'⎕nexists ''',(2⎕nq'.' 'GetEnvironment' 'COMMANDFOLDER'),''''
-⎕pw←400
-  :endif
+     ⎕SE.File←d,'/default.dse'
+     2 ⎕NQ'⎕se' 'FileRead'
+     ⎕DL 1 ⍝ make sure we don't have a timing issue
+     ⎕SE.Dyalog.Callbacks.WSLoaded 1
+ :EndIf
+ ⎕←⎕SE.UCMD'-?'
+ ⎕←2 ⎕NQ'.' 'GetEnvironment' 'COMMANDFOLDER'
+ ⎕←'exists=',⍕⍎'⎕nexists ''',(2 ⎕NQ'.' 'GetEnvironment' 'COMMANDFOLDER'),''''
+ ⎕SE.SALT.Set'cmddir ',⎕SE.Dyalog.Utils.Config'COMMANDFOLDER'
+ ⎕←'cmddir=',⎕SE.SALT.Set'cmddir'
+ ⎕←⎕SE.UCMD'-?'
+ ⎕←'lx. citaDEVT=',2 ⎕NQ'.' 'GetEnvironment' 'citaDEVT'
  ⍝ set up ⎕SE._cita
- ⎕SE.UCMD'GetTools4CITA ',⍕⎕this
+ :Trap 0   ⍝ might not be present on older versions...
+     ⎕SE.UCMD'output.find on -includequadoutput'
+ :EndTrap
+ ⎕SE.UCMD'GetTools4CITA ',⍕⎕THIS
  NL←⎕UCS 13
  ⎕ML←1
  ⎕IO←1
@@ -68,12 +73,11 @@
      :Select ext
      :CaseList '' '.dyalogtest',('DTest'≡Env'mode')/⊂ext
          :Trap 0
-             ⎕←cmd←'DTest "',subj,'" -testlog="',(Env'testlog'),'" ',(Env'dtestmods ')
+             ⎕←cmd←'DTest "',subj,'" -testlog="',(Env'testlog'),'" ',(Env'dtestmods '),' -off'
              ⎕SE.UCMD cmd
-             rc←20
          :Else
              rc←21
-             ⎕←'Error during ',(1⊃⎕xSI).,': ',(⍎'(⎕json⎕OPT''Compact''0) ⎕DMX')    ⍝ avoid problems with 12.1 which can't tokenize ⎕DMX (saved in 12.1, executed in 18)
+             ⎕←'Error during ',(1⊃⎕XSI),': ',(⍎'(⎕json⎕OPT''Compact''0) ⎕DMX')    ⍝ avoid problems with 12.1 which can't tokenize ⎕DMX (saved in 12.1, executed in 18)
              ⎕←'en=',⎕EN
              subj HandleError' ]',cmd
          :EndTrap
@@ -143,13 +147,21 @@ End:
      ⎕←'No problems running user code'
      ⎕SE._cita.Success''
  :ElseIf 0<⎕SE._cita.tally subj←Env'RunUCMD'
+     ⎕←'Executing UCMD ',subj
+     ⎕←'CommandLineArgs:'
+     ⎕←2 ⎕NQ'.' 'GetCommandLineArgs'
      :Trap udebug↓0
          ⎕←']',subj
-         ⎕SE.UCMD subj
+         res←⎕SE.UCMD subj
+         ⎕←'Log=',res
      :Else
          subj HandleError ⎕←'Error executing UCMD',NL,∊⎕DM,¨⊂NL
      :EndTrap
-    ⍝ we produce no status-file after running a UCMD and we don't automatically )OFF!
+     :If res[1]='─'   ⍝ success indicator
+         ⎕SE._cita.Success'Execute UCMD "',subj,'"'  ⍝ off after running UCMD
+     :Else
+         ⎕SE._cita.Failure'Execute UCMD "',subj,'"'  ⍝ off after running UCMD
+     :EndIf
  :Else
      ⎕←'No idea why you called me! :('
      ∘∘∘

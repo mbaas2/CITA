@@ -7,24 +7,27 @@
     editions: ["classic" , "unicode"],
     bits: [32,64],
     platforms: [
+        "aix",
         "mac",
         "pi",
-        "win",
-        "linux",
-        "aix"
+        //"win",
+        //"linux",
+        
     ],
     platforms_editions: {
         mac: ["unicode"],
         pi: ["unicode"],
-        aix: ["unicode"], /* temporarily ignore classic on aix */
     },
     platforms_bits: {
         mac: [64],
         pi: [32],
         linux: [64],
-        aix: [64], /* temporarily ignore 32 on AIX */
     },
     platforms_extras: {
-        aix: ["p8","p9","p10"]
+        aix: [
+            "p8",
+            "p9",
+          //  "p10"
+            ]
     }
 }

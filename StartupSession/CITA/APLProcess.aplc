@@ -127,11 +127,9 @@
               Proc←SshProc host port keyfile cmd
           :Else
               z←⍕GetCurrentProcessId
-              output←(1+×≢OUT_FILE)⊃'/dev/null'OUT_FILE
+              output←(1+×≢OutFile)⊃'/dev/null'OutFile
               cmd,←'{ ',args,' ',Exe,' +s -q ',ws,' -c APLppid=',z,' </dev/null >',output,' 2>&1 & } ; echo $!'
               pid←_SH cmd
-              ⎕←'Launched ',cmd 
-              ⎕←'pid=',pid
               Proc.Id←pid
               Proc.HasExited←HasExited
           :EndIf
@@ -167,7 +165,6 @@
       :Else
           r←tonum⊃_SH'echo $PPID'
       :EndIf
-      ⎕←'GetCurrentProcessId returning ',⍕r
     ∇
 
     ∇ r←GetCurrentExecutable;⎕USING;t;gmfn
@@ -360,13 +357,7 @@
       :If IsWin∨{2::0 ⋄ IsSsh}''
           r←{0::⍵ ⋄ Proc.HasExited}1
       :Else
-      :if 9=⎕nc'Proc'
-      :andif 2=Proc.⎕nc'Id'
           r←~UNIXIsRunning Proc.Id ⍝ AWS
-          :else 
-          r←0   
-          ⎕←'Avoided VALUE ERROR on Proc.Id in "HasExited", called by ',(2⊃⎕si),'[',(⍕2⊃⎕lc),']'
-          :endif
       :EndIf
     ∇
 
@@ -442,7 +433,6 @@
       r←0
       →(r←' '∨.≠txt←UNIXGetShortCmd pid)↓0
       r←~∨/'<defunct>'⍷txt
-      'UNIXISRunning ',(⍕pid),', r=',r
     ∇
 
     ∇ {r}←UNIXIssueKill(signal pid)
@@ -455,23 +445,18 @@
       :EndIf
     ∇
 
-    ∇ r←UNIXGetShortCmd pid;cmd;ps
+    ∇ r←UNIXGetShortCmd pid;cmd
       ⍝ Retrieve sort form of cmd used to start process <pid>
-      cmd←(1+IsMac∨0∧'AIX'≡Platform)⊃'cmd' 'command'
-      ps←'ps ',⍨('AIX'≡3↑⊃'.'⎕WG'APLVersion')/'/usr/sysv/bin/'    ⍝ Must use this ps on AIX
-        cmd←ps,' -o ',cmd,' -p ',(⍕pid),' 2>/dev/null ; exit 0'
+      cmd←(1+IsMac)⊃'cmd' 'command'
+      cmd←'ps -o ',cmd,' -p ',(⍕pid),' 2>/dev/null ; exit 0'
       :If {2::0 ⋄ IsSsh}'' ⍝ instance?
           ∘∘∘
       :Else
-          r←⎕SH cmd
+      ⎕←'UNIXGetShortCmd ',(⍕pid)
+      ⎕←'cmd=',cmd
+      ⎕←'dr cmd=',⎕dr cmd
+          r←⊃1↓⎕SH cmd
       :EndIf
-      ⎕←'Output of UNIXGetShortCmd with pid=',(⍕pid),' and cmd=',cmd,⎕ucs 13
-      ⎕←'r1=',r
-      r←⊃1↓r
-      ⎕←'r2=',r
-      ⎕←'This was called from '⋄⎕si{(↑⍺),'<[>,I5,<]>'⎕fmt ⍵}⎕lc
-      ⎕←'End of output'
-      
     ∇
 
     ∇ r←_PS cmd;ps
