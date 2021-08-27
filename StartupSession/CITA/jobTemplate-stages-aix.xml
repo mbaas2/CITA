@@ -5,7 +5,9 @@ stage ('aix_%VERSION%') {
   steps {                
     script {
       def rc=-1
+      def testPath=""
       def citaDEVT ="/devt/"
+      def E = ""
       [%BITS%].each { BITS ->
         [%EDITIONS%].each { EDITION ->
           [%EXTRAS%].each { P ->
@@ -25,15 +27,17 @@ stage ('aix_%VERSION%') {
             if ("$EDITION" == "classic") {
               sh 'echo ")off" | APLT1=utf8 APLT2=utf8 APLK0=utf8'
             }
-            cmdline = "%CMDLINE% citaDEVT=${citaDEVT}"
+            E = EDITION.take(1)
+            testPath="%xinO%aix_%VERSION%_${P}_${E}${BITS}/"
+            cmdline = "%CMDLINE% citaDEVT=${citaDEVT} USERCONFIGFILE=${testPath}cita.dcfg CITA_Log=${testPath}CITA.log LogFile=${testPath}CITA_Session.dlf"
             echo "Launching $path $cmdline "
             sh(script: "$path $cmdline" , returnStatus: true);
-            exists = fileExists("%CITA_LOG%.ok") 
+            exists = fileExists("${testPath}CITA.log.ok") 
             if (exists) {
               echo "Test succeeded"
               rc = (rc < 1)?0:1
             } else {
-              echo "Test did not end with status file %CITA_LOG%.ok"
+              echo "Test did not end with status file ${testPath}CITA.log.ok"
               rc = 1
             }
             echo "rc=${rc}"

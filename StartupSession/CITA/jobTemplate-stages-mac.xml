@@ -2,14 +2,13 @@ stage ('mac_%VERSION%') {
   agent{
     label "%CITA_VERSION%&&mac&&%VERSION%"
   }
-
   steps {                
     script {
       echo "NODE_NAME = ${env.NODE_NAME}"            
+      def testPath=""
+      def citaDEVT=""
       def path = "/Dyalog/Dyalog-%VERSION%.app/Contents/Resources/Dyalog/mapl"
       def exists = fileExists(path)      
-      def rcj=0    
-      def citaDEVT="startValue"
       if (exists) {
         echo "PLATFORM=mac, path=${path}: File exists!"
       } else {
@@ -22,23 +21,23 @@ stage ('mac_%VERSION%') {
           error "PLATFORM=mac, path=${path}: File does not exist, giving it up!"
         }
       }
-      def cmdline = '%CMDLINE%'
+      testPath="%xinO%mac_%VERSION%_u64/"
       if ("${env.NODE_NAME}"=="mac3") {
         cmdline = cmdline.replace("/devt/","/Volumes/devt/")
         citaDEVT="/Volumes/devt/"
       } else {
         citaDEVT="/devt/"
       }
+      def cmdline = "%CMDLINE% citaDEVT=${citaDEVT} USERCONFIGFILE=${testPath}cita.dcfg CITA_Log=${testPath}CITA.log LogFile=${testPath}CITA_Session.dlf"
       cmdline = "${cmdline} citaDEVT=${citaDEVT}"
       echo "Launching $path $cmdline"
       rcj = sh(script: "$path $cmdline" , returnStatus: true);
-      echo "Ended with returncode=$rcj"
-      exists = fileExists("%CITA_LOG%.ok") 
+      exists = fileExists("${testPath}CITA.log.ok") 
       if (exists) {
         echo "Test succeeded"
         sh "exit 0"
       } else {
-        echo "Test did not end with status file %CITA_LOG%.ok"
+        echo "Test did not end with status file ${testPath}CITA.log.ok"
         sh "exit 1"
       }
     }
