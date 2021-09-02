@@ -2,9 +2,9 @@
     nl←⎕ucs 13
 
     ∇ Run nul
-      ⎕SE.SALT.Load Home,'Jarvis.dyalog -target=#'
-      ⎕SE.SALT.Load Home,'Crypt.dyalog -target=#'
-      #.Crypt.Init Home
+      ⎕SE.SALT.Load Home,'../Jarvis/Source/Jarvis.dyalog -target=#'
+      ⎕SE.SALT.Load Home,'../DCL/Crypt.dyalog -target=#'
+      #.Crypt.Init Home,'../DCL/'
       srv←⎕NEW #.Jarvis
       srv.CodeLocation←#.CITA_Server
       srv.Debug←1
@@ -17,6 +17,7 @@
 
     getHeader←{2⊃⍵[⍵[;1]⍳⊆⍺;]}
     hash←{#.Crypt.(HASH_SHA256 Hash (⎕ucs'UTF-8'⎕ucs ⍵))}
+    stringToHex←{⎕IO←0⋄∊⍉(16⍴⎕D,⎕A)[16 16⊤⎕UCS ⍵]}
 
 
     ∇ res←{req}WebHook arg;log;event;sig;sec;secH;repo
