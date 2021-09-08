@@ -1,0 +1,12 @@
+version: '2'
+services:
+  cita:
+    image: dyalog/jarvis
+    volumes:
+    - ${PWD}:/app
+    environment:
+    - GITHUB_SECRET=ABC123
+    - GitHub_API_Token=abc123
+    #- DYALOGSTARTUPSE:/app/StartupSession/
+    working_dir: /app
+#    user: '6103' #for JR - set to your UID if needed

@@ -1,0 +1,7 @@
+{
+    "CodeLocation": "/app/server/CITA_Server.apln",
+    "Debug": 0,
+    "Paradigm":"JSON",
+    "Port":80,
+    "AppInitFn": "Run"
+}
