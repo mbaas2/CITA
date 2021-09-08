@@ -13,6 +13,11 @@
       ⎕SE.SALT.Load Home,'../DCL/Crypt.dyalog -target=#'
       #.Crypt.Init Home,'../DCL/'
       r←0
+      ⎕←'Ran Run-fn ;)   Home=',Home
+      ⎕←'NC=',⎕se.⎕nc 'CITA'
+       ⎕←'COMMANDFOLDER=',2 ⎕NQ'.' 'GetEnvironment' 'COMMANDFOLDER'
+ ⎕←'COMMANDFOLDER=',⎕SE.Dyalog.Utils.Config'COMMANDFOLDER'
+ ⎕←'cmddir=',⎕se.SALT.Set'cmddir'
     ∇
 
     getHeader←{2⊃⍵[⍵[;1]⍳⊆⍺;]}

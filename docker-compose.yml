@@ -2,11 +2,14 @@ version: '2'
 services:
   cita:
     image: dyalog/jarvis
+    stdin_open: true
     volumes:
     - ${PWD}:/app
+    tty: true
     environment:
     - GITHUB_SECRET=ABC123
     - GitHub_API_Token=abc123
-    #- DYALOGSTARTUPSE:/app/StartupSession/
+    - DYALOGSTARTUPSE=/app/StartupSession/
+    - COMMANDFOLDER=home/dyalog/MyUCMDs:/opt/mdyalog/18.0/64/unicode/SALT/spice;/app/SALT/spice
     working_dir: /app
 #    user: '6103' #for JR - set to your UID if needed
