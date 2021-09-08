@@ -14,10 +14,9 @@
       #.Crypt.Init Home,'../DCL/'
       r←0
       ⎕←'Ran Run-fn ;)   Home=',Home
-      ⎕←'NC=',⎕se.⎕nc 'CITA'
-       ⎕←'COMMANDFOLDER=',2 ⎕NQ'.' 'GetEnvironment' 'COMMANDFOLDER'
- ⎕←'COMMANDFOLDER=',⎕SE.Dyalog.Utils.Config'COMMANDFOLDER'
- ⎕←'cmddir=',⎕se.SALT.Set'cmddir'
+      ⎕←'NC=',⍕⎕SE.⎕NC'CITA'
+      ⎕←'COMMANDFOLDER=',⎕SE.Dyalog.Utils.Config'COMMANDFOLDER'
+      ⎕←'cmddir=',⎕SE.SALT.Set'cmddir'
     ∇
 
     getHeader←{2⊃⍵[⍵[;1]⍳⊆⍺;]}
@@ -37,7 +36,8 @@
       sec←2 ⎕NQ'.' 'GetEnvironment' 'GITHUB_SECRET'
       :If sig≢'sha256=',⎕C stringToHex(#.Crypt.HMAC_SHA256 sec)#.Crypt.Hash req.Body
           log,←'Could not verify secret - will not do anything on our repos!',nl
-          ∘∘∘
+          res←''   ⍝ don't give' em anything
+          →0
       :Else
           log,←'Secret was verified!'
           :If 9=arg.⎕NC'repository'
@@ -57,7 +57,7 @@
       :If ⎕NEXISTS LOGDIR  ⍝ only write a logfile if logdir exists
           (⊂log)⎕NPUT ⎕←LOGDIR,,'<req>,ZI4,ZI2,ZI2,<_>,ZI2,ZI2,ZI3,<.log>'⎕FMT 1 6⍴⎕TS
       :EndIf
-      res←'Processed your request.'
+      res←'Processed your request'
     ∇
 
     ∇ R←Home
