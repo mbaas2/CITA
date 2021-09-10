@@ -452,9 +452,9 @@
       :If {2::0 ⋄ IsSsh}'' ⍝ instance?
           ∘∘∘
       :Else
-      ⎕←'UNIXGetShortCmd ',(⍕pid)
-      ⎕←'cmd=',cmd
-      ⎕←'dr cmd=',⎕dr cmd
+    ⍝   ⎕←'UNIXGetShortCmd ',(⍕pid)
+    ⍝   ⎕←'cmd=',cmd
+    ⍝   ⎕←'dr cmd=',⎕dr cmd
           r←⊃1↓⎕SH cmd
       :EndIf
     ∇

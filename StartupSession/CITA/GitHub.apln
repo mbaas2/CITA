@@ -346,7 +346,7 @@
       :If 0<≢t←5179⌶1⊃⎕SI
           HomeDir←1⊃⎕NPARTS 4⊃t
       :EndIf
-      ⎕SE.SALT.Load'HttpCommand.dyalog'
+      ⎕SE.SALT.Load HomeDir,'HttpCommand.dyalog'
     ∇
 
     split←(≠⊆⊢)
