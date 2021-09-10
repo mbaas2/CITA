@@ -3,5 +3,6 @@
     "Debug": 0,
     "Paradigm":"JSON",
     "Port":80,
-    "AppInitFn": "Run"
+    "AppInitFn": "Run",
+    "HTMLInterface":0
 }
