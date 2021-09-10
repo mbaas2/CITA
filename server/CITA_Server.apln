@@ -54,7 +54,7 @@
           :EndIf
       :EndIf
      
-      :If ⎕NEXISTS LOGDIR  ⍝ only write a logfile if logdir exists
+      :If ⎕NEXISTS LOGDIR←Home,'logs/'  ⍝ only write a logfile if logdir exists
           (⊂log)⎕NPUT ⎕←LOGDIR,,'<req>,ZI4,ZI2,ZI2,<_>,ZI2,ZI2,ZI3,<.log>'⎕FMT 1 6⍴⎕TS
       :EndIf
       res←'Processed your request'
