@@ -231,7 +231,7 @@
       :EndIf
     ∇
 
-    ∇ {ns}←ExecuteLocalTest arg;fld;fl;loc;xin;rc;specs;R;step;specsObj;lg;cnt;list;showedIO;log;del;list2;v;xin∆;jlog;cfg;rcTest;interpreters;interpreter;t;int;resTab;plus;V;B;b;E;xinO;lint;dot;item;legend;symb;summary;exp;Log;jobR;res;keep
+    ∇ {ns}←ExecuteLocalTest arg;fld;fl;loc;xin;rc;specs;R;step;specsObj;lg;cnt;list;showedIO;log;del;list2;v;xin∆;jlog;cfg;rcTest;interpreters;interpreter;t;int;resTab;plus;V;B;b;E;xinO;lint;dot;item;legend;symb;summary;exp;Log;jobR;res;keep;resNS
 ⍝:: Execute local tests
 ⍝?: Execute local tests
 ⍝?:
@@ -336,12 +336,11 @@
               interpreters←(interpreters.id∊lg)/interpreters
           :EndIf
       :EndIf
-     ⍝ (⎕lc[1]+1)⎕stop 1⊃⎕si
+      Results←⎕NS''
       :For interpreter :In interpreters
           ⎕←(1⊃⎕SI),'[',(⍕1⊃⎕LC),'] interpreter=',interpreter
      
           xin∆←xinO,{0::⍵ ⋄ interpreter.id,'_'}''
-     
      
           :If interpreter≡0
               ⎕←(1⊃⎕SI),'[',(⍕1⊃⎕LC),']'
@@ -361,7 +360,7 @@
           :If interpreters≢,0
               Log,←⊂'Interpreter ',interpreter.id
           :EndIf
-          :For specs :In specsObj
+          :For specs :In specsObj  ⍝ loop through multiple tests
               cnt+←1
               :If (cnt+1)>≢resTab ⋄ resTab←resTab⍪⊂'' ⋄ resTab[cnt+1;1]←⊂specs.id ⋄ :EndIf
               :If 2=specs.⎕NC'disabled'
@@ -519,7 +518,7 @@
               res←~(res∊0 ¯1)∧rcTest=0
               log,←2⊃jobR
               Log,←⊂(3⍴'·~*'[0 ¯1⍳rcTest]),' ',('#',(⍕cnt),' ',((~showedIO)/' (⎕IO=1) '),{0<≢⍵:'"',⍵,'"'}specs.id),({⍵=0:': success ···' ⋄ ⍵=¯1:': not executed ~~~' ⋄ ': FAILURE (return code = ',(⍕⍵),') ***'}rcTest)
-              showedIO←showedIO∨''≡⍥⎕DR specs.id
+              showedIO←showedIO∨~''≡⍥⎕DR specs.id
               :If 0<≢log,jlog
                   log←(⊆log),⊆jlog
                   :If 1=≢log
@@ -552,42 +551,34 @@
                   del←list2
               :EndSelect
               :Trap DEBUG↓0
-                  :For item :In ⌽del
+                  :For item :In (⌽del),⊂xin
                       :If ⎕NEXISTS item
-                          :If 1=⊃1 ⎕NINFO item                  ⍝ if the items is a folder
+                          :If 1=⊃1 ⎕NINFO item              ⍝ if the items is a folder
                           :AndIf 0<≢⊃0(⎕NINFO⍠1)item,'/*'   ⍝ and there are still files in it
                               del←del~⊂item                  ⍝ do not attempt to delete it
+                          :Else
+                              ⎕NDELETE item
                           :EndIf
                       :EndIf
                   :EndFor
-                  :Continue  ⍝ temporary  - do not delete anything!
-                  1 ⎕NDELETE⌽del   ⍝ we try to delete files and folders individually
-                  :If 0=≢keep
-                      1 ⎕NDELETE xin
-                  :EndIf
               :Else
                   Log,←⊂'Trapped error while clearing folder "',xin,'":',NL,⎕DMX.(OSError{⍵,2⌽(×≢⊃⍬⍴2⌽⍺)/'") ("',⊃⍬⍴2⌽⍺}Message{⍵,⍺,⍨': '/⍨×≢⍺}⊃⍬⍴DM,⊂'')
                   Log,←⊂'Full details:',NL,(⎕JSON⍠'Compact' 0)⎕DMX
                   res←702
                   →EndForSpec
               :EndTrap
-              _DeleteEmptyFolders xinO
      EndForSpec:
+              (resNS←'t_',(2⊃⎕NPARTS ¯1↓xin))Results.⎕NS''
+              resNS←Results⍎resNS
+              resNS.Log←2⊃jobR
+              resNS.rc←rcTest
           :EndFor
      NextInt:
       :EndFor
       :If interpreters≢,0    ⍝ if we run against multiple interpreters
       :AndIf rcTest≠¯1       ⍝ and tests were actually executed...
           Log,←↓⍕resTab
-          Log,←'' 'Explanation of status indicator(s):'
-          legend←''
-          summary←∊1 1↓resTab
-          :For symb exp :In ('·' 'success')('-' 'failure')('~' 'disabled')('t' 'timeout')('n' 'no status file found')('e' 'error')('c' 'APLCORE while running test')('w' 'WS FULL executin test')('¢' 'classic vs. unicode')
-              :If symb∊summary
-                  legend,←symb,'= ',exp,', '
-              :EndIf
-          :EndFor
-          Log,←⊂¯2↓legend
+          Log,←AddLegend resTab
       :EndIf
       :If ∨/1 'r'∊keep
           Log,←⊂'Logs (including this log) can be found in ',xin∆,' and subfolders'
@@ -596,8 +587,11 @@
       ns.Log←Log
       ns.rc←res
       ns.testMat←resTab
-      ⎕←'ExecuteLocalTest, Log=',Log
+      cmnt←NL,'/***************** Results *******************',NL,(,(⍕resTab),⊂NL),'****************************/',NL
+      (⊂cmnt{⍵[1],⍺,1↓⍵}(⎕JSON⍠'Compact' 0)Results)⎕NPUT xinO,'CITA.log.json'
     ∇
+
+
 
     ∇ {ns}←TestRepo arg;fld;fl;loc;xin;rc;specs;R;step;specsObj;lg;cnt;list;showedIO;log;del;list2;v;xin∆;jlog;cfg;rcTest;interpreters;interpreter;t;int;resTab;plus;V;B;b;E;xinO;lint;dot;item;wd;args;url;sha;stages;cmdline_s;configfile;sdir;repo;platform;version;fapl;file_s;nlf;stage;file;job;cmdline;FixPath;rc1;aplv;log1;res;org;dcwd;home;hasCITA;lb;jenk;p1;EXTRAS;BITS;EDITIONS;EXTRA_i;EXTRA;EXTRAS_i;EDITION;dyalogversions;name;type;n1;cmdlinePre;dir;to;pth
 ⍝:: Test a remote GitHub-repository
@@ -748,6 +742,7 @@
           cfg.Settings←⎕NS''
           cfg.Settings.DYALOGCITASRCDIR←FixPath xinO,'CITA'
           cfg.Settings.UDEBUG←'on'
+          cfg.Settings.DEFAULT_PW←400
      
           (xinO,'CITA/client')(⎕NCOPY⍠'IfExists' 'Replace')'c:\git\CITA\client\RunCITA.dws '
           cmdlinePre←''
@@ -769,9 +764,14 @@
 ⍝          :OrIf ⎕NEXISTS file←(1⊃⎕NPARTS 1⊃2 ⎕ATX 1⊃⎕SI),'jobTemplate.xml'
           :OrIf ⎕NEXISTS file←##.Home,'StartupSession/CITA/jobTemplate.xml'
               job←1⊃⎕NGET file
-              stages←''
+              STAGES←''
               LOGFILES←⍬
               :For platform :In dyalogversions.platforms  ⍝  'mac' 'pi'  ⍝ 'win' 'linux' ⍝ TODO: maybe CITA.json5 should specify the platforms?
+                  ⍝intro←('stage("',platform,'&&%CITA_VERSION%"){') '  agent{' ('    label "',platform,'&&%CITA_VERSION%"') '  }' '  steps{' '    script{'
+                  ⍝intro←('stage("',platform,'&&%CITA_VERSION%"){') '  agent{' ('    label "',platform,'&&%CITA_VERSION%"') '  }' '  steps{' '    catchError(buildResult: "UNSTABLE", stageResult: "FAILURE") {' '      script{'
+                  intro←('stage("',platform,'") {')'  steps{' '    script {'
+                  intro,←(⊂'      '),¨1⊃⎕NGET((1⊃⎕NPARTS file),'/stageintro.tmpl')1
+                  stage←''
      
                   EDITIONS←dyalogversions.editions
                   :If 9=dyalogversions.⎕NC'platforms_editions'
@@ -798,7 +798,7 @@
                   ⎕←platform,': ',EDITIONS,' ',BITS
                   file_s←(∊2↑⎕NPARTS file),'-stages-',platform,'.xml'  ⍝ the stage-file for that platform
                   :If ⎕NEXISTS file_s
-                      (stage nlf)←(⎕NGET file_s 1)[1 3]
+                      (ThisStage nlf)←(⎕NGET file_s 1)[1 3]
                       :For version :In fapl
                           :For BIT :In BITS
                               :For EDITION :In ⊆EDITIONS
@@ -806,28 +806,27 @@
                                       sdir←xinO,platform,'_',version,'_',({1<≢⍵:⍵ ⋄ ''}EXTRA,'_'),EDITION[1],(⍕BIT),'/'
                                       3 ⎕MKDIR sdir,repo ⍝ create subfolder for repo
                                       configfile←sdir,'cita.dcfg'
-                                      cfg.Settings.RunUCMD←'ExecuteLocalTest ',(1 FixPath xinO,repo,'/',(∊1↓⎕NPARTS cita_file)),' -off -workdir=',1 FixPath sdir,repo,'/'
-                                      LOGFILES,←⊂sdir,'CITA.log'
-                                      cfg.Settings.DEFAULT_PW←400
+                                      cfg.Settings.RunUCMD←'ExecuteLocalTest ',(1 FixPath xinO,repo,'/',(∊1↓⎕NPARTS cita_file)),' -workdir=',1 FixPath sdir,repo,'/',({(⍵≢⍥,'*')/' -keep="',⍵,'"'}'*'arg.Switch'keep'),({(⍵≢⍥,'*')/' -keeponfailure="',⍵,'"'}'*'arg.Switch'keeponfailure')
+     
+                                      LOGFILES,←⊂sdir,repo,'/CITA.log'
                                       :If 'win'≡⎕C platform  ⍝ tweaks for win, suggested by AS, 210819
-                                          cfg.DYALOG_NOPOPUPS←1   ⍝
-                                          cfg.PASSEXCEPTIONSTOOPSYS←0
+                                          cfg.Settings.DYALOG_NOPOPUPS←1   ⍝
+                                          cfg.Settings.PASSEXCEPTIONSTOOPSYS←0
                                       :EndIf
                                       (⊂(⎕JSON⍠'Compact' 0)cfg)⎕NPUT configfile
                                   :EndFor
                               :EndFor
                           :EndFor
-                          stages,←('%xinO%' '%VERSION%' '%CMDLINE%' '%CMDLINEPRE%' '%BITS%' '%EDITIONS%' '%EXTRAS%'⎕R(FixPath xinO)(⍕version)(cmdline)(cmdlinePre)({0=≢⍵:'' ⋄ ¯1↓∊(⍕¨⍵),¨','}BITS)({0=≢⍵:'' ⋄ ¯1↓∊'"',¨⍵,¨⊂'",'}EDITIONS)({0=≢⍵:'' ⋄ ¯1↓∊'"',¨⍵,¨⊂'",'}EXTRAS)⍠'Regex' 0)stage
+                          stage,←('%xinO%' '%VERSION%' '%CMDLINE%' '%CMDLINEPRE%' '%BITS%' '%EDITIONS%' '%EXTRAS%' '%PLATFORM%'⎕R(FixPath xinO)(⍕version)(cmdline)(cmdlinePre)({0=≢⍵:'' ⋄ ¯1↓∊(⍕¨⍵),¨','}BITS)({0=≢⍵:'' ⋄ ¯1↓∊'"',¨⍵,¨⊂'",'}EDITIONS)({0=≢⍵:'' ⋄ ¯1↓∊'"',¨⍵,¨⊂'",'}EXTRAS)platform⍠'Regex' 0)(ThisStage)
                       :EndFor
                   :Else
                       ns.Log,←'Skipped platform "',platform,'" - no stage-file with platform-specific code found. (Looked for ',file_s,')',NL
                   :EndIf
+                  STAGES,←intro,((⊂'     '),¨stage),'    }' '  }' '}'
               :EndFor
-          ⍝:End
-     
               p1←⍸∊'%STAGES%'⍷job  ⍝ search string that we will replace with content of var "stages"
               lb←¯1+p1-⌈/⍸((⎕UCS job)∊10 13)∧(⍳≢job)<p1  ⍝ leading blanks of lines (so that we can maintain indent)
-              job←((p1-lb)↑job),(∊(⊂lb⍴' '),¨stages,¨⊂⎕UCS nlf),{(+/∧\⍵∊⎕UCS 10 13)↓⍵}(p1{⊃(⍵>⍺)/⍵}⍸(⎕UCS job)∊10 13)↓job
+              job←((p1-lb)↑job),(∊(⊂lb⍴' '),¨STAGES,¨⊂⎕UCS nlf),{(+/∧\⍵∊⎕UCS 10 13)↓⍵}(p1{⊃(⍵>⍺)/⍵}⍸(⎕UCS job)∊10 13)↓job
               file←xinO,∊1↓⎕NPARTS file
               (⊂job)⎕NPUT file
               jenk←⎕NEW ##.JenkinsConnection
@@ -837,9 +836,27 @@
               (⊂log)⎕NPUT(file,'.log')1  ⍝ save the log (temp)  TODO: remove!
      
               ns.Log,←'Executing job as defined in ',file,NL
-              ns.Log,←'BEGIN of Jenkins log',NL,log,NL,'END of Jenkins log',NL
-              ns.Log,←'LogFiles: ',∊{0=≢r←⊃0(⎕NINFO⍠1)⍵,'.*':'-',⍵,⎕UCS 13 ⋄ ∊{⍵,((∨/'.fail.'⍷⍵:':',(⎕ucs 13),1⊃⎕nget ⍵⋄'')/),⎕ucS 13}¨⍵}¨LOGFILES
-              ns.rc←rc
+              ⍝ns.Log,←'BEGIN of Jenkins log',NL,log,NL,'END of Jenkins log',NL
+              platforms←('(.*)_(.*)_(.*)/'⎕S'\1\3'⍠'Greedy' 0){⍵[⍳¯1+⍵⍳'/']}(≢xinO)↓¨LOGFILES
+              versions←('_(.*)_'⎕S'\1'){⍵[⍳¯1+⍵⍳'/']}(≢xinO)↓¨LOGFILES
+              tests←2↓¨∪⊃¨{((⎕JSON⍠'Dialect' 'JSON5')1⊃⎕NGET ⍵,'.json').⎕NL ¯9}¨LOGFILES
+              vt←((≢tests)/∪versions),[0.5](×/≢¨tests(∪versions))⍴tests
+              resTab←((⊂''),(⊂''),∪platforms),vt⍪((≢∪platforms),¯1↑⍴vt)⍴' '
+              rc∆←0
+              :For i :In ⍳≢LOGFILES
+                  r←(∪platforms)⍳platforms[i]
+                  s←(⎕JSON⍠'Dialect' 'JSON5')1⊃⎕NGET(i⊃LOGFILES),'.json'
+                  :For t :In s.⎕NL ¯9
+                      c←(↓[1]vt)⍳⊂versions[i],⊂t
+                      resTab[2+r;1+c]←⊂'·-tniecw¢'[1+(s⍎t).rc]
+                  :EndFor
+              :EndFor
+              ns.resTab←resTab
+              ns.Log,←''  'Results:' ,↓⍕resTab
+              ⎕←↑ns.Log
+              ns.Log,←AddLegend 1 0↓resTab
+              ns.rawTab←2 1↓resTab
+              ns.rc←0+'-tniecw¢'∊ns.rawTab
           :Else
               ns.Log←'Could not find required "',file,'" to build Jenkins job'
               ns.rc←911
@@ -903,8 +920,8 @@
           wd←1⊃⎕NPARTS ¯1↓1⊃⎕NPARTS ¯1↓xinO
           fl←⊃0(⎕NINFO⍠('Recurse' 2)('Wildcard' 1))xinO,'CITA.json*'
      
-          args←{(0<≢⍵)/' -keep=',⍵}''arg.Switch'keep'
-          args,←{(0<≢⍵)/' -keeponfailure=',⍵}''arg.Switch'keeponfailure'
+          args←{('*'≢⍥,⍵)/' -keep="',⍵,'"'}'*'arg.Switch'keep'
+          args,←{('*'≢⍥,⍵)/' -keeponfailure="',⍵,'"'}'*'arg.Switch'keeponfailure'
           args,←{(0<≢⍵)/' -int',(⍵≢1)/'=',⍵}''arg.Switch'int'
           args,←' -ucmd=0 -workdir="',wd,'"'
           ns←ExecuteLocalTest(1⊃fl),args   ⍝ pass-through the result...
@@ -915,7 +932,7 @@
     ∇
 
     :section tools
-    ∇ ns←step _RunJob cfg_specs_interpreter;cpu;dws;cmd;ext;proc;StatusFiles;ai3;log;specs;cfg;file;isDTest;Fullname;t;TestLog;log_file;exited;WSFULL
+    ∇ ns←step _RunJob cfg_specs_interpreter;cpu;dws;cmd;ext;proc;StatusFiles;ai3;log;specs;cfg;file;isDTest;Fullname;t;TestLog;log_file;exited;WSFULL;lg;ai31
 ⍝ returncode: 0=ok
 ⍝             1=test failed
 ⍝             2=aborted because of Timeout
@@ -977,6 +994,9 @@
       :Else
           ns.(R log)←4('Did not recognize type of file "',file,'"') ⋄ →EndJob
       :EndSelect
+      :If ⎕SE.SALTUtils.DEBUG
+          cmd,←' UDEBUG=on'
+      :EndIf
       cmd,←' ',cfg
       exited←¯1
       ⎕←(1⊃⎕SI),'[',(⍕1⊃⎕LC),'] Creating new APLProcess. dws=',dws,', cmd=',cmd,', xin=',xin
@@ -1003,19 +1023,25 @@
       WSFULL←0  ⍝ has the test hit a WS FULL?
       ⎕←'isDTest=',(⍕isDTest),', TestLog=',TestLog
       ⎕←'Testlog exists: ',⎕NEXISTS TestLog
+      ⎕←'fpat=',(∊2↑⎕NPARTS 1⊃StatusFiles),'.*'
+      ⎕←'ninfo=',⊃0(⎕NINFO⍠'Wildcard' 1)(∊2↑⎕NPARTS 1⊃StatusFiles),'.*'
       :If isDTest
           :If ⎕NEXISTS TestLog
               lg←1⊃⎕NGET TestLog
               :If ∨/'WS FULL'⍷lg
-                  ''⎕NPUT ns.logFile←((∊2↑⎕NPARTS 1⊃StatusFiles),'.wsfull'
+                  ''⎕NPUT(ns.logFile←(∊2↑⎕NPARTS 1⊃StatusFiles),'.wsfull')1
                   WSFULL←1
-              :ElseIf ∨/∊'SYNTAX ERROR' 'VALUE ERROR' 'DOMAIN ERROR'⍷¨⊂lg  ⍝ check mmost common errors...
-                  ''⎕NPUT ns.logFile←(1⊃StatusFiles)1
+              :ElseIf ∨/' ERROR'⍷lg
+                  (⊂lg)⎕NPUT(ns.logFile←(1⊃StatusFiles))1
+                  ⎕←'Created error log ',1⊃StatusFiles
               :Else
-                  ''⎕NPUT ns.logFile←(2⊃StatusFiles)1
+                  (⊂lg)⎕NPUT(ns.logFile←(2⊃StatusFiles))1
+                  ⎕←'Created failure log ',2⊃StatusFiles
               :EndIf
-          :Else
+              ns.log,←NL,lg
+          :ElseIf 0=≢⊃0(⎕NINFO⍠'Wildcard' 1)(∊2↑⎕NPARTS 1⊃StatusFiles),'.*'  ⍝ if no statusfile was written
               ''⎕NPUT(3⊃StatusFiles)1
+              ⎕←'Created statusfile ',3⊃StatusFiles
           :EndIf
       :EndIf
       :If 0=⎕NC'exited'
@@ -1027,7 +1053,11 @@
       :If ⎕NEXISTS ns.logFile←(∊2↑⎕NPARTS 1⊃StatusFiles),'.wsfull' ⋄ ns.R←7 ⋄ →EndJob ⋄ :EndIf
       :If WSFULL ⋄ ns.R←7 ⋄ →EndJob ⋄ :EndIf
       :If ⎕NEXISTS ns.logFile←3⊃StatusFiles ⋄ ns.R←0 ⋄ →EndJob ⋄ :EndIf
-      :If ⎕NEXISTS ns.logFile←2⊃StatusFiles ⋄ ns.log←'Test created logfile "',(2⊃StatusFiles),'" to indicate failed tests. More info might be found in it and in the APL Session-log "',log_file,'"' ⋄ ns.R←1 ⋄ →EndJob ⋄ :EndIf
+      :If ⎕NEXISTS ns.logFile←2⊃StatusFiles
+          ns.log←'Test created logfile "',(2⊃StatusFiles),'" to indicate failed tests. More info might be found in it and in the APL Session-log "',log_file,'"'
+          ns.R←1
+          →EndJob
+      :EndIf
       :If ⎕NEXISTS ns.logFile←1⊃StatusFiles
           lg←1⊃⎕NGET 1⊃StatusFiles
           :If ∨/∊'TRANSLATION ERROR' '⎕UCS '⍷¨⊂lg
@@ -1137,6 +1167,19 @@
 
     _quote←{'"',(∊(⊂'\"')@{⍵='"'}⍵),'"'}
     _findLine←{{(+/∧\⍵=' ')↓⍵}¨l↓¨(((l←2+≢⍵)↑¨⍺)≡¨⊂'⍝',⍵,':')/⍺}
+
+    ∇ Log←AddLegend resTab;legend;summary
+      Log←'' 'Explanation of status indicator(s):'
+      legend←''
+      summary←∊1 1↓resTab
+      :For symb exp :In ('·' 'success')('-' 'failure')('~' 'disabled')('t' 'timeout')('n' 'no status file found')('e' 'error')('c' 'APLCORE while running test')('w' 'WS FULL executing test')('¢' 'classic vs. unicode')
+          :If symb∊summary
+              legend,←symb,'= ',exp,', '
+          :EndIf
+      :EndFor
+      Log,←⊂¯2↓legend
+    ∇
+
       dxb←{                                           ⍝ Drop eXtraneous Blanks.
           ⍺←' ' ⋄ 1<|≡⍵:(⊂⍺)∇¨⍵                       ⍝ nested?
           2<⍴⍴⍵:(¯1↓⍴⍵){(⍺,1↓⍴⍵)⍴⍵}⍺ ∇,[¯1↓⍳⍴⍴⍵]⍵     ⍝ array

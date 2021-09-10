@@ -15,7 +15,7 @@
               r←⍬   ⍝ optionally API-fns may return rc as ⍬ which is an indicator to ommit the header (for "simple" this like reports in ]APLVersion)
           :Else
               r←cmd,': ',{⍵=0:'success' ⋄ ⍵=¯1:'warning' ⋄ ('*** '/⍨0≠⍵),'FAILURE (return code=',(⍕⍵),')'},⊃,rc
-              r←l r(l←(⌈/(≢r),≢¨log)⍴'─~-'[0 ¯1⍳⊃,rc])
+              r←l r(l←(⌈/(≢r),≢¨log)⍴'─~-'[0 ¯1⍳⊃,rc])   ⍝ NB: "─" is shown as "." in AIX Classic logs
           :EndIf
           r←r,⊆log
           r←∊{1<|≡⍵:⍵,¨⎕UCS 13 ⋄ ⍵,⎕UCS 13}¨r
