@@ -54,8 +54,18 @@
     ∇
 
     ∇ Init
-      ⎕SE.SALT.Load'HTTPCommand -target=#'         ⍝ needs Brians updates from Feb3d, so we need to keep it in the same folder!
+      ⎕SE.SALT.Load HomeDir,'HttpCommand -target=#'         ⍝ needs Brians updates from Feb3d, so we need to keep it in the same folder!
       crumb←(get'/crumbIssuer/api/json').crumb
+    ∇
+
+
+    ∇ R←HomeDir;src
+      :If '18.0'≡4↑2⊃'.'⎕WG'aplversion'
+          src←5179⌶1⊃⎕SI
+      :Else
+          src←50 ⎕ATX 1⊃⎕SI
+      :EndIf
+      R←1⊃⎕NPARTS src
     ∇
 
 
@@ -65,9 +75,9 @@
       url←CISERVER,url
       prms←⎕NS''
       prms.u←CREDS
-      h←⎕NEW #.HttpCommand('GET'url prms)
+      res←#.HttpCommand.Get url prms
       ⍝ res←#.HttpCommand.Get url prms
-      res←h.Run
+⍝       res←h.Run
       :If res.rc=0
           :If opt=0
               :Trap 0
@@ -88,7 +98,9 @@
       :Else
           ⎕←'Call to "',url,'" did not end with rc=0'
           ⎕←res,'    ⍝ res'
-          ⎕←('<.*>(.*)</.*>'⎕S'\1'⍠'Greedy' 0)¨('id="error-description".*>(.*</div>)'⎕S'\1'⍠'Greedy' 0)res.Data
+          :If 0<≢res.Data
+              ⎕←('<.*>(.*)</.*>'⎕S'\1'⍠'Greedy' 0)¨('id="error-description".*>(.*</div>)'⎕S'\1'⍠'Greedy' 0)res.Data
+          :EndIf
           (1+⊃⎕LC)⎕STOP⊃⎕SI
           ⎕←(1+⊃⎕LC),' ⎕STOP ',⊃⎕SI
      
@@ -192,12 +204,12 @@
  ⍝     ⎕←'file=',file
 ⍝      (⎕lc[1]+1)⎕stop 1⊃⎕si
       bin←('&(?![a-z]*;)'⎕R'&amp;')bin
-      bin←('"' '''' '%cmdline%' '<' '>'⎕R'&quot;' '&apos;' Commandline'&lt;' '&gt;'⍠('Regex' 0))bin
-
+      bin←('"' '''' '%cmdline%' '<' '>'⎕R'&quot;' '&apos;'Commandline'&lt;' '&gt;'⍠('Regex' 0))bin
+     
       bin←binPre,bin,binPost
       res←bin post(url(1 2⍴'Content-Type' 'application/xml'))
       (⊂bin)⎕NPUT(file,'.submitted')1     ⍝ save script as it was submitted
-       bin←('&quot;' '&apos;' '&amp;'⎕R(,¨'"''&')⍠'Regex' 0)bin
+      bin←('&quot;' '&apos;' '&amp;' '&lt;' '&gt;'⎕R(,¨'"''&<>')⍠'Regex' 0)bin
       (⊂bin)⎕NPUT(file,'.subm.rdbl')1     ⍝ a human-readable form
      
       :If 0≠⊃res
