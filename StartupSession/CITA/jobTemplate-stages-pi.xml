@@ -1,30 +1,30 @@
-stage ('pi_%VERSION%') {
-  agent{
-    label "%CITA_VERSION%&&pi&&%VERSION%"
-  }
-  steps {                
-    script {
-      def citaDEVT="/devt/"
-      echo "NODE_NAME = ${env.NODE_NAME}"            
-      def path = "/opt/mdyalog/%VERSION%/32/unicode/mapl"
-      def exists = fileExists(path)          
-      if (exists) {
-        echo "PLATFORM=pi, path=${path}: File exists!"
-      } else {
-        error "Found no interpreter for ${env.NODE_NAME}. Labels: ${env.NODE_LABELS}"
-      }
-      testPath="%xinO%pi_%VERSION%_u32/"
-      def cmdline = '%CMDLINE%'
-      cmdline = "%CMDLINE% citaDEVT=${citaDEVT} USERCONFIGFILE=${testPath}cita.dcfg CITA_Log=${testPath}CITA.log LogFile=${testPath}CITA_Session.dlf"
-      echo "Launching $path $cmdline "
-      sh(script: "$path $cmdline" , returnStatus: true)
-      exists = fileExists("${testPath}CITA.log.ok") 
-      if (exists) {
-        echo "Test succeeded"
-        sh "exit 0"
-      } else {
-        echo "Test did not end with status file ${testPath}CITA_LOG.ok"
-        sh "exit 1"
+stage ("pi&&%CITA_VERSION%&&%VERSION%") {
+  node ("pi&&%CITA_VERSION%&&%VERSION%") {
+    [%BITS%].each { BITS -> 
+      [%EDITIONS%].each { EDITION ->
+        catchError(buildResult: "UNSTABLE", stageResult: "FAILURE") {
+          echo "NODE_NAME = ${env.NODE_NAME}"            
+          path = "/opt/mdyalog/%VERSION%/${BITS}/${EDITION}/mapl"
+          E = EDITION.take(1)
+          exists = fileExists(path)          
+          if (exists) {
+            echo "PLATFORM=pi, path=${path}: File exists!"
+          } else {
+            error "Found no interpreter for ${env.NODE_NAME}. Labels: ${env.NODE_LABELS}"
+          }
+          testPath="%xinO%pi_%VERSION%_${E}${BITS}/"
+          cmdline = "%CMDLINE% citaDEVT=${citaDEVT} USERCONFIGFILE=${testPath}cita.dcfg CITA_Log=${testPath}CITA.log LOG_FILE=${testPath}CITA_Session.dlf"
+          echo "Launching $path $cmdline "
+          rjc = sh(script: "$path $cmdline" , returnStatus: true)
+          exists = fileExists("${testPath}CITA.log.ok") 
+          if (exists) {
+            echo "Test succeeded"
+            sh "exit 0"
+          } else {
+            echo "Test did not end with status file ${testPath}CITA_LOG.ok"
+            sh "exit 1"
+          }
+        }
       }
     }
   }
