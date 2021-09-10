@@ -1,22 +1,13 @@
-stage ('aix_%VERSION%') {
-  agent{
-    label "%CITA_VERSION%&&aix&&%VERSION%"
-  }
-  steps {                
-    script {
-      def rc=-1
-      def testPath=""
-      def citaDEVT ="/devt/"
-      def E = ""
-      [%BITS%].each { BITS ->
-        [%EDITIONS%].each { EDITION ->
-          [%EXTRAS%].each { P ->
+stage ("aix&&%CITA_VERSION%&&%VERSION%") {
+  node ("aix&&%CITA_VERSION%&&%VERSION%") {
+    [%BITS%].each { BITS ->
+      [%EDITIONS%].each { EDITION ->
+        [%EXTRAS%].each { P ->
+          catchError(buildResult: "UNSTABLE", stageResult: "FAILURE") {
             echo "NODE_NAME = ${env.NODE_NAME}"            
-            def path = "/opt/mdyalog/%VERSION%/${BITS}/${EDITION}/${P}/mapl"
-            def exists = fileExists(path)          
-            if (exists) {
-              echo "PLATFORM=aix, path=${path}: File exists!"
-            } else {
+            path = "/opt/mdyalog/%VERSION%/${BITS}/${EDITION}/${P}/mapl"
+            exists = fileExists(path)          
+            if (!exists) {
               error "Found no interpreter for ${env.NODE_NAME}. Labels: ${env.NODE_LABELS}"
             }
             cmdlinePre = '%CMDLINEPRE%'
@@ -29,10 +20,11 @@ stage ('aix_%VERSION%') {
             }
             E = EDITION.take(1)
             testPath="%xinO%aix_%VERSION%_${P}_${E}${BITS}/"
-            cmdline = "%CMDLINE% citaDEVT=${citaDEVT} USERCONFIGFILE=${testPath}cita.dcfg CITA_Log=${testPath}CITA.log LogFile=${testPath}CITA_Session.dlf"
+            cmdline = "%CMDLINE% citaDEVT=${citaDEVT} USERCONFIGFILE=${testPath}cita.dcfg CITA_Log=${testPath}CITA.log LOG_FILE=${testPath}CITA_Session.dlf"
             echo "Launching $path $cmdline "
-            sh(script: "$path $cmdline" , returnStatus: true);
-            exists = fileExists("${testPath}CITA.log.ok") 
+            // sh "$path $cmdline" 
+            rcj =  sh(script: "$path $cmdline" , returnStatus: true)
+            echo "rcj=$rcj"           
             if (exists) {
               echo "Test succeeded"
               rc = (rc < 1)?0:1
@@ -40,15 +32,10 @@ stage ('aix_%VERSION%') {
               echo "Test did not end with status file ${testPath}CITA.log.ok"
               rc = 1
             }
-            echo "rc=${rc}"
           }
         }
       }
-      if (rc==0) {
-        sh "exit 0"
-      } else {
-        sh "exit 1"
-      }
     }
+    sh "exit $rc"
   }
 }
