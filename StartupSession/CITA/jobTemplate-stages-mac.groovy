@@ -1,7 +1,8 @@
-stage ("mac&&%CITA_VERSION%&&%VERSION%") {
+stage ("mac_%CITA_VERSION%_%VERSION%") {
   node ("mac&&%CITA_VERSION%&&%VERSION%") {
     // no looping over bits/editions - mac is always unicode 64 
-    catchError(buildResult: "UNSTABLE", stageResult: "FAILURE") {
+    // catchError(buildResult: "UNSTABLE", stageResult: "FAILURE") {
+    try {
       echo "NODE_NAME = ${env.NODE_NAME}"            
       path = "/Dyalog/Dyalog-%VERSION%.app/Contents/Resources/Dyalog/mapl"
       exists = fileExists(path)      
@@ -18,35 +19,46 @@ stage ("mac&&%CITA_VERSION%&&%VERSION%") {
         }
       }
       testPath="%xinO%mac_%VERSION%_u64/"
-      CITAlog="${testPath}CITA.log"
-      echo "CITAlog=$CITAlog"
-      cmdline = "%CMDLINE% USERCONFIGFILE=${testPath}cita.dcfg CITA_Log=${CITAlog} LOG_FILE=${testPath}CITA_Session.dlf"
-      echo "cmdline=$cmdline"
+      echo "testPath=$testPath"
+      cmdline = "%CMDLINE% CONFIGFILE=${testPath}cita.dcfg CITA_Log=${testPath}CITA.log LOG_FILE=${testPath}CITA_Session.dlf citaDEVT=${citaDEVT}"
       if ("${env.NODE_NAME}"=="mac3") {
         echo "replacing for mac3"
-        cmdline = cmdline.replaceAll("/devt/","/Volumes/devt/")
-        CITAlog = CITAlog.replaceAll("/devt/","/Volumes/devt/")
-        testPath = testPath.replaceAll("/devt/","/Volumes/devt/")
-        echo "cmdLine=$cmdline"
+        testPath = testPath.replaceAll("(^|=)/devt/","\$1/Volumes/devt/")
+        cmdline = cmdline.replaceAll("(^|=)/devt/","\$1/Volumes/devt/")
         citaDEVT="/Volumes/devt/"
         echo "citaDEVT=$citaDEVT"
       } else {
         citaDEVT="/devt/"
       }
-      cmdline = "${cmdline} citaDEVT=${citaDEVT}"
+      CITAlog="${testPath}CITA.log"
+      echo "cmdline=$cmdline"
+      echo "CITAlog=$CITAlog"
       echo "Launching $path $cmdline"
       //sh "$path $cmdline"
-      rjc = sh(script: "$path $cmdline" , returnStatus: true)
+      rcj = sh(script: "$path $cmdline" , returnStatus: true)
       echo "CITAlog=$CITAlog|${CITAlog}"
+      echo "rcj=$rcj"
       sh "ls ${testPath}"
       exists = fileExists("${CITAlog}.ok") 
       if (exists) {
         echo "Test succeeded"
-        sh "exit 0"
+        rc = 0
       } else {
         echo "Test did not end with status file ${CITAlog}.ok"
-        sh "exit 1"
+        rc = 1
       }
+    } catch (err)
+    {
+      echo "Caught error: ${err}"
+      // unstable("Stage failed!")
+      rc = 1
     }
+    if (rc != 0)
+    {
+      unstable("Stage failed!")
+      rc=0
+    }
+    echo "rc=$rc"
+    sh "exit $rc"
   }
 }

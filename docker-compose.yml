@@ -12,4 +12,6 @@ services:
     - DYALOGSTARTUPSE=/app/StartupSession/
     - COMMANDFOLDER=home/dyalog/MyUCMDs:/opt/mdyalog/18.0/64/unicode/SALT/spice;/app/SALT/spice
     working_dir: /app
+    expose: 
+    - "80"
 #    user: '6103' #for JR - set to your UID if needed

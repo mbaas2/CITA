@@ -16,14 +16,19 @@
     <script>
     pipeline {
       agent any
+      options { 
+        disableConcurrentBuilds() 
+      }
       stages {
         stage ("Cleanup") {
           agent {
-            label "aix&&18.0&&cita_latest"
+            <!-- label "aix&&18.2&&cita_latest" -->
+            label "mac&&18.2&&cita_latest"
           }
           steps {
+            cleanWs()
             catchError(buildResult: "UNSTABLE", stageResult: "FAILURE") {
-              sh "/opt/mdyalog/18.0/64/unicode/p8/mapl load=/devt/apltools/CITA/CITA-Tests/cleanup.aplf userconfigfile=/devt/apltools/CITA/CITA-Tests/cleanup.dcfg"
+              sh "/opt/mdyalog/18.2/64/unicode/p8/mapl load=/devt/apltools/CITA/CITA-Tests/cleanup.aplf configfile=/devt/apltools/CITA/CITA-Tests/cleanup.dcfg FOLDER=%xinD%"              
               //sh "exit 0"  // end this step w/o problem-status, as it would avoid execution of next steps...
             }
           }
@@ -33,20 +38,18 @@
             %STAGES%  
           }
         }
-      }
-      post {// Clean up
-        always {
-            cleanWs()
+        stage ("Unlock") {
+          agent {
+            label "aix&&18.2&&cita_latest"
+          }
+          steps {
             script {
-              sh "ls $JENKINS_HOME/jobs/$JOB_NAME/builds/lastSuccessfulBuild/log"
-              def jenkins = Jenkins.getInstance()
-              def job = jenkins.getItem(jobName)
-              def bld = job.getBuildByNumber(buildNumber)
-              //use the method that suits you
-              //bld.getLog(100) //number of lines to read
-              bld.getLogFile()
-              //bld.getLogReader() 
-            }
+              def LOCKFILE="%LOCKFILE%"
+              if (LOCKFILE != "") {
+                sh "rm $LOCKFILE"
+              }
+            } 
+          }
         }
       }
     }

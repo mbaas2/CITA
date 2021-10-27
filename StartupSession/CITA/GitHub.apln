@@ -91,7 +91,7 @@
       R←1
       h←_gethc('https://api.github.com/repos/',org,'/',repo,'/git/blobs/',url)('Accept' 'application/vnd.github.v3+json')
       :If 0=(res←h.Run).rc
-      :andif 200=res.HttpStatus
+      :AndIf 200=res.HttpStatus
           msg←target←∊1 ⎕NPARTS target
           :If ~⎕NEXISTS dir←1⊃⎕NPARTS target
               3 ⎕MKDIR dir
@@ -168,11 +168,11 @@
                       data←,[0.5]x
                   :EndIf
               :Else
-                  :If 3=≡x
+⍝                  :If 3=≡x
                       data←↑x
-                  :Else
-                      data←,[1.5]x
-                  :EndIf
+⍝                  :Else
+⍝                      data←,[1.5]x
+⍝                  :EndIf
               :EndIf
           :Else
               data←↑j{⍺{6::⎕NULL ⋄ ⍺⍎⍵}¨,⍵}¨⊂fields
@@ -291,7 +291,16 @@
       :EndIf
       url←'https://api.github.com/repos/',org,'/',repo,'/git/trees/',sha
       x←(mns('params'('recursive' '1'))('fields'('tree.path' 'tree.url' 'tree.type' 'tree.sha')))GetPagedResults url
-      :For rec :In 1↓↓x
+    ⍝   ⎕←'url=',url
+    ⍝   ⎕←'⍴x=',⍴x
+    ⍝   ⎕←'≡x=',≡x
+    ⍝   ∘∘∘
+      :If 0>≡x
+          x←1↓↓⍉↑x[2;]
+      :Else
+          x←1↓↓x
+      :EndIf
+      :For rec :In x
  ⍝ data←HttpCommand.Get 2⊃rec
           :Select 3⊃rec
           :Case 'tree'

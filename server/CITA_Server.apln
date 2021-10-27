@@ -62,7 +62,7 @@
 
     ∇ R←Home
       :If 0=⎕NC'_Home'
-          :If '18.1'≡4↑2⊃'.'⎕WG'APLVersion'
+          :If 18.1≤2⊃⎕vfi 4↑2⊃'.'⎕WG'APLVersion'
               _Home←1⊃⎕NPARTS 50 ⎕ATX 1⊃⎕SI
           :Else
               _Home←1⊃⎕NPARTS 4⊃5179⌶1⊃⎕SI

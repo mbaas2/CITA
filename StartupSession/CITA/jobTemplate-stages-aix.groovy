@@ -1,9 +1,10 @@
-stage ("aix&&%CITA_VERSION%&&%VERSION%") {
+stage ("aix_%CITA_VERSION%_%VERSION%") {
   node ("aix&&%CITA_VERSION%&&%VERSION%") {
     [%BITS%].each { BITS ->
       [%EDITIONS%].each { EDITION ->
         [%EXTRAS%].each { P ->
-          catchError(buildResult: "UNSTABLE", stageResult: "FAILURE") {
+          //catchError(buildResult: "UNSTABLE", stageResult: "FAILURE") {
+          try {
             echo "NODE_NAME = ${env.NODE_NAME}"            
             path = "/opt/mdyalog/%VERSION%/${BITS}/${EDITION}/${P}/mapl"
             exists = fileExists(path)          
@@ -16,26 +17,37 @@ stage ("aix&&%CITA_VERSION%&&%VERSION%") {
               sh "$cmdlinePre"
             }
             if ("$EDITION" == "classic") {
-              sh 'echo ")off" | APLT1=utf8 APLT2=utf8 APLK0=utf8'
+              cmdlinePre = "APLT1=utf8 APLT2=utf8 APLK0=utf8 "
             }
             E = EDITION.take(1)
             testPath="%xinO%aix_%VERSION%_${P}_${E}${BITS}/"
-            cmdline = "%CMDLINE% citaDEVT=${citaDEVT} USERCONFIGFILE=${testPath}cita.dcfg CITA_Log=${testPath}CITA.log LOG_FILE=${testPath}CITA_Session.dlf"
-            echo "Launching $path $cmdline "
+            cmdline = "%CMDLINE% citaDEVT=${citaDEVT} CONFIGFILE=${testPath}cita.dcfg CITA_Log=${testPath}CITA.log LOG_FILE=${testPath}CITA_Session.dlf"
+            echo "Launching $cmdlinePre $path $cmdline "
             // sh "$path $cmdline" 
-            rcj =  sh(script: "$path $cmdline" , returnStatus: true)
-            echo "rcj=$rcj"           
+            rcj =  sh(script: "$cmdlinePre $path $cmdline" , returnStatus: true)
+            echo "returncode=$rcj"      
+            exists = fileExists("${testPath}CITA.log.ok")     
             if (exists) {
               echo "Test succeeded"
               rc = (rc < 1)?0:1
             } else {
-              echo "Test did not end with status file ${testPath}CITA.log.ok"
+              echo "Testing %VERSION%${E}${BITS}-${P} did not end with status file ${testPath}CITA.log.ok"
               rc = 1
             }
+          } catch (err)
+          {
+            echo "Caught error: ${err}"
+            rc = 1
           }
         }
       }
     }
+    if (rc != 0)
+    {
+      unstable("Stage failed!")
+      rc=0
+    }
+    echo "rc=$rc"
     sh "exit $rc"
   }
 }

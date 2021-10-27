@@ -10,11 +10,21 @@
     ∇ {r}←Run(cmd args);res;⎕ML;l;rc;log
       :If 3=⎕NC'##.API.',cmd               ⍝ if function exists in ⎕SE.CITA...
           args.SwD⍪←'ucmd' 1 ⋄ args.ucmd←1  ⍝ indicate to the fn that it is called via UCMD
+          :trap ⎕se.SALTUtils.DEBUG↓0
           (rc log)←{9=⎕nc'⍵':⍵.(rc Log) ⋄ ⍵}⍎'##.API.',cmd,' args'  ⍝ execute it...
+          :else 
+          log←('Trapped error while executing UCMD:'),(⎕json⎕OPT'Compact'0)⎕dmx
+          :if 0<⎕se.SALTUtils.⎕nc'dmx'
+          log,←('⎕SE.SALTUtils.dmx:'),(⎕json⎕OPT'Compact'0)⎕SE.SALTUtils.dmx
+          :endif
+          rc←1
+          :endtrap
           :If rc≡⍬
-              r←⍬   ⍝ optionally API-fns may return rc as ⍬ which is an indicator to ommit the header (for "simple" this like reports in ]APLVersion)
+              r←⍬   ⍝ optionally API-fns may return rc as ⍬ which is an indicator to ommit the header (for "simple" things like reports in ]APLVersion)
           :Else
-              r←cmd,': ',{⍵=0:'success' ⋄ ⍵=¯1:'warning' ⋄ ('*** '/⍨0≠⍵),'FAILURE (return code=',(⍕⍵),')'},⊃,rc
+          ⎕←'rc=',rc
+              r←cmd,': ',{uw←∪⍵ ⋄ uw≡,0:'success' ⋄ uw≡,¯1:'warning' ⋄ ('*** '/⍨(,0)≢uw),('FAILURE' 'DIVERSE RESULTS'⊃⍨1+1<≢uw),' (return code',('s'/⍨1<≢uw),'=',(⍕∪⍵),')'}∊rc
+              ⎕←'r=',r
               r←l r(l←(⌈/(≢r),≢¨log)⍴'─~-'[0 ¯1⍳⊃,rc])   ⍝ NB: "─" is shown as "." in AIX Classic logs
           :EndIf
           r←r,⊆log

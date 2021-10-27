@@ -4,6 +4,7 @@
     :field public JENKINS_USERNAME←''
     :field public JENKINS_APIKEY←''
     :field public JOBNAME←''
+    :field public LOCKFILE←'' ''  ⍝ LOCKFILE  [1] from local perspective, [2] as seen from Jenkins  (to deal with U: vs. /devt/)
     :field public debug←1
     :field public Cleanup←1
     :field public Labels←''  ⍝ vtv with labels to use...
@@ -71,8 +72,12 @@
 
     ∇ R←{opt}get url;prms
     ⍝ opt= undefined | 1 (to return result and instance of HttpCommand that was created & execxuted)
+      try←1
+     TryAgain:
       :If 0=⎕NC'opt' ⋄ opt←0 ⋄ :EndIf
-      url←CISERVER,url
+      :If CISERVER≢(≢CISERVER)↑url   ⍝ prefix server if not done yet
+          url←CISERVER,url
+      :EndIf
       prms←⎕NS''
       prms.u←CREDS
       res←#.HttpCommand.Get url prms
@@ -96,6 +101,17 @@
               cookie←c
           :EndIf
       :Else
+          :If res.rc=1106
+              ⍞←'Call to "',url,'" ended with rc=1106'
+              :If try<5
+                  ⍞←' - trying again'
+                  try+←1
+                  →TryAgain
+              :Else
+                  ⍞←'Giving up'
+                  ∘∘∘
+              :EndIf
+          :EndIf
           ⎕←'Call to "',url,'" did not end with rc=0'
           ⎕←res,'    ⍝ res'
           :If 0<≢res.Data
@@ -112,7 +128,7 @@
     ⍝ ⍺=undefined | data to post | 1 (to return the instance of HttpCommand that was generated & executed)
       retC←0
       :If 0=⎕NC'data' ⋄ data←'' ⋄ :EndIf
-      :If data≡1 ⋄ retC←1 ⋄ data←'' ⋄ :EndIf
+      :If data≡1 ⋄ retC←data ⋄ data←'' ⋄ :EndIf
       (url addHd)←2↑(⊆url_addHd),⊂''
       url←((1+url⍳'/')↑url),CREDS,'@',(1+url⍳'/')↓url  ⍝ use authentication with credentials in URL
       Headers←1 2⍴'Cookie'cookie
@@ -125,14 +141,19 @@
       :If res.rc=0
       :AndIf res.HttpStatus∊200 201
           R←res.(rc Data)
-          :If retC ⋄ R←res h ⋄ :EndIf
+          ⎕←'─── Called ',url,' and got this'
+          ⎕←(⎕JSON⍠'Compact' 0)res.Data
+          :If retC=1
+              R←res h
+          :EndIf
+     
       :Else
-          (⊂res.Data)⎕NPUT(file,'.err.html')1
+          (⊂res.Data)⎕NPUT(file,'.err.html')1  ⍝ TODO: this can probably be moved down inside the :Else - otherwise we don't really need that answer anymore...
           :If 0=≢err←('<.*>(.*)</.*>'⎕S'\1'⍠'Greedy' 0)¨('id"error-description".*>(.*</div>)'⎕S'\1'⍠'Greedy' 0)res.Data
-              err←('<.*>(.*)</.*>'⎕S'\1'⍠'Greedy' 0)¨('name="skip2content".*>(.*</div>)'⎕S'\1'⍠'Greedy' 0)res.Data
+              err←∊('name="skip2content".*>(.*)</div>'⎕S'\1'⍠'Greedy' 0)res.Data
           :EndIf
           :If 0<≢err
-              R←1('Could not create job, got unexpected rc. Saved returned msg in ',file,'.err.html, relevant portion extracted as "',err,'"')
+              R←1('Could not create job, got unexpected rc. Saved returned msg in ',file,'.err.html, relevant portion extracted as "',(∊err),'"')
           :Else
               ⎕←'Call to "',url,'" did not end with rc=0 (and HttpStatus=200)'
               ⎕←res,'    ⍝ res'
@@ -147,9 +168,14 @@
     :section Public Methods
 
 
-    ∇ (rc msg)←file RunJob jobname;h;con;⎕TRAP;r;bin;url;res;sink;cv;binPre;binPost
+    ∇ ns←file RunJob jobname;h;con;⎕TRAP;r;bin;url;res;sink;cv;binPre;binPost;rdbl;ns;rc
       :Access public
-     
+      :If ''≢1⊃LOCKFILE
+          :While ⎕NEXISTS 1⊃LOCKFILE
+          :EndWhile
+          (⊂⍕⎕TS)⎕NPUT 1⊃LOCKFILE
+      :EndIf
+      ns←⎕NS''
 ⍝ R=rc     success or not? (0=ok, 2nd)
 ⍝    msg  processing log if rc[1]=0, errMsg otherwise
 ⍝ ## Create the Jenkins job
@@ -201,6 +227,7 @@
           cv←CITA_VERSION
           bin←('%CITA_VERSION%'⎕R cv⍠('Regex' 0))bin
       :EndIf
+      bin←('%LOCKFILE%'⎕R (2⊃LOCKFILE)⍠('Regex' 0))bin
  ⍝     ⎕←'file=',file
 ⍝      (⎕lc[1]+1)⎕stop 1⊃⎕si
       bin←('&(?![a-z]*;)'⎕R'&amp;')bin
@@ -209,49 +236,63 @@
       bin←binPre,bin,binPost
       res←bin post(url(1 2⍴'Content-Type' 'application/xml'))
       (⊂bin)⎕NPUT(file,'.submitted')1     ⍝ save script as it was submitted
-      bin←('&quot;' '&apos;' '&amp;' '&lt;' '&gt;'⎕R(,¨'"''&<>')⍠'Regex' 0)bin
-      (⊂bin)⎕NPUT(file,'.subm.rdbl')1     ⍝ a human-readable form
+      rdbl←('&quot;' '&apos;' '&amp;' '&lt;' '&gt;'⎕R(,¨'"''&<>')⍠'Regex' 0)bin
+     
+      (⊂rdbl)⎕NPUT(file,'.subm.rdbl')1     ⍝ a human-readable form
      
       :If 0≠⊃res
-      :AndIf debug
-          ⎕←'Unexpected result after positing to ',url
-          res
-          ∘∘∘
+          :If ∨/'A job already exists with the name'⍷2⊃res
+          ⍝ see: http://jenkins.dyalog.bramley/view/CITA%20Builds/job/CITA_conga-apl_main/api/
+          ⍝ http://jenkins.dyalog.bramley/view/CITA%20Builds/job/CITA_conga-apl_main/config.xml
+              ⎕NDELETE file,'.err.html'   ⍝ no need to keep this error, as we know how to deal with it!
+              url←CISERVER,'/job/',JOBNAME,'/config.xml'
+              res←bin post(url(1 2⍴'Content-Type' 'application/xml'))
+              :If 0≠⊃res
+                  ∘∘∘
+              :EndIf
+          :ElseIf debug
+              ⎕←'Unexpected result after positing to ',url
+              res
+              ∘∘∘
+          :EndIf
+     
       :EndIf
     ⍝ ## Run the jenkins job
     ⍝ echo "Running Job"
     ⍝ curl -s -XPOST "${CISERVER}/job/${JOBNAME}/build" -H "$CRUMB" -u $CREDS
       :If debug ⋄ ⎕←'Running job' ⋄ :EndIf
       (r h)←1 post CISERVER,'/job/',JOBNAME,'/build' ⍝ use authentication with credentials in URL
-     
       :If r.rc=0
       :AndIf r.HttpStatus∊200 201
 ⍝ Jenkins takes a moment to start the job, the lastBuild will return a 404 until the FIRST job is running or has completed
-          h.URL←{((1+⍵⍳'/')↑⍵),CREDS,'@',(1+⍵⍳'/')↓⍵}CISERVER,'/job/',JOBNAME,'/lastBuild/api/json' ⍝ use authentication with credentials in URL
-          :If debug ⋄ ⎕←'Waiting for job to start' ⋄ :EndIf
-          :Repeat
-              {}⎕DL 1
-              r←h.Run
-          :Until r.rc≠404
+          url←r.Headers{2⊃⍺[⍺[;1]⍳⊂⍵;]}'Location'
+          ns.url←url
+          h.URL←{((1+⍵⍳'/')↑⍵),CREDS,'@',(1+⍵⍳'/')↓⍵}url,'api/json'
      
-          :If debug ⋄ ⎕←'Waiting for job to finish' ⋄ :EndIf
+          :If debug ⋄ ⎕←'Waiting for job to complete' ⋄ :EndIf
           :Repeat
-              ⎕DL 1
               r←h.Run
-          :Until r.rc=0
-          :AndIf r.HttpStatus=200
-          :AndIf (j←⎕JSON r.Data).building≡⊂'false'
-     
+          :Until 9=(⎕JSON r.Data).⎕NC'executable'
+          :OrIf r.rc≠0
           :If r.rc≠0
-              rc←r.rc
-              msg←r.Data
+              ns.rc←r.rc
+              ns.Data←⎕JSON r.Data
               →0
           :EndIf
      
+     
+          h.URL←(⎕JSON r.Data).executable.url,'api/json?',#.HttpCommand.UrlEncode'depth=2&tree=builds[actions[parameters[name,value]],number,result]'
+          :Repeat
+              r←h.Run
+          :Until (⎕JSON r.Data).building≢⊂'true'
+          :OrIf r.rc≠0
+          ns.Data←⎕JSON r.Data
+     
         ⍝ # Show the console output
         ⍝ curl ${CISERVER}/job/${JOBNAME}/${JID}/consoleText
-          msg←get'/job/',JOBNAME,'/',(⍕j.id),'/consoleText'
      
+          ⎕←'Ready to retrieve the log!'
+          ns.log←get(⎕JSON r.Data).url,'consoleText'
           ⍝ h.Command←'get'
           ⍝ con←h.Run
      
@@ -263,12 +304,16 @@
                   (1+1⊃⎕LC)⎕STOP debug/1⊃⎕SI
                   ⎕←'Error deleting job'
               :EndIf
+              ns.rc←rc
           :EndIf
       :Else
-          ⎕←'Unexpected rc from "build":' ⋄ ⎕←r
-          ∘∘∘
+          ns.log←'Unexpected rc from "build":' ⋄ ⎕←r
+          ns.rc←r.rc
       :EndIf
-     
+      :if ''≢1⊃LOCKFILE
+      :andif ⎕nexists 1⊃LOCKFILE
+     ⎕ndelete 1⊃LOCKFILE
+     :endif
     ∇
     :endsection
 

@@ -13,9 +13,12 @@
     :field public WaitTime←30                      ⍝ seconds to wait for a response before timing out
     :field public SuppressHeaders←0                ⍝ set to 1 to suppress HttpCommand-supplied default request headers
 
+    :field public BufferSize←100000                ⍝ Conga buffersize
+    :field public DOSLimit←¯1                      ⍝ use Conga default DOSLimit (1MB)
+    :field public TimeOut←5000                     ⍝ TimeOut on Wait
     :field public Cert←⍬                           ⍝ X509 instance if using HTTPS
     :field public SSLFlags←32                      ⍝ SSL/TLS flags - 32 = accept cert without checking it
-    :field public Priority←'NORMAL:!CTYPE-OPENPGP' ⍝ default GnuTLS priority string
+    :field public Priority←'NORMAL:!CTYPE-OPENPGP' ⍝ GnuTLS priority string
     :field public PublicCertFile←''                ⍝ if not using an X509 instance, this is the client public certificate file
     :field public PrivateKeyFile←''                ⍝ if not using an X509 instance, this is the client private key file
 
@@ -32,7 +35,7 @@
     :field public readonly shared ValidFormUrlEncodedChars←'&=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~*+~%'
 
     :field Client←''                               ⍝ Conga client ID
-    :field Public HostSecure←''                    ⍝ when a client is made, its host and secure settings are saved so that if either changes, we close the previous client
+    :field Public HostPortSecure←''                ⍝ when a client is made, its host, port and secure settings are saved so that if either changes, we close the previous client
 
     ∇ r←Version
     ⍝ Return the current version
@@ -178,7 +181,7 @@
       setDisplayFormat ns
     ∇
 
-    ∇ r←Init r;ref;root;nc;class;n;ns;congaCopied
+    ∇ r←Init r;ref;root;nc;n;ns;congaCopied;class
       ⍝↓↓↓ Check if LDRC exists (VALUE ERROR (6) if not), and is LDRC initialized? (NONCE ERROR (16) if not)
       :Hold 'HttpCommandInit'
           :If {6 16 999::1 ⋄ ''≡LDRC:1 ⋄ 0⊣LDRC.Describe'.'}''
@@ -244,14 +247,13 @@
     ∇
 
     ∇ (rc secureParams)←CreateSecureParams(cert flags priority public private);nmt;msg;t
-    ⍝ called by HttpCommand
     ⍝ certs is:
-    ⍝    [1] X509Cert instance or (PublicCertFile PrivateKeyFile)
-    ⍝    [2] SSL flags
-    ⍝    [3] GnuTLS priority
-    ⍝    [4] PublicCertFile
-    ⍝    [5] PrivateKeyFile
-    ⍝ if certs is empty, check PublicCertFile and PrivateKeyFile
+    ⍝ cert     - X509Cert instance or (PublicCertFile PrivateKeyFile)
+    ⍝ flags    - SSL flags
+    ⍝ priority - GnuTLS priority
+    ⍝ public   - PublicCertFile
+    ⍝ provate  - PrivateKeyFile
+    ⍝ if cert is empty, check PublicCertFile and PrivateKeyFile
      
       LDRC.X509Cert.LDRC←LDRC ⍝ make sure the X509 instance points to the right LDRC
      
@@ -342,7 +344,7 @@
      
       :If ~(port>0)∧(port≤65535)∧port=⌊port ⋄ →∆END⊣r.msg←'Invalid port - ',⍕port ⋄ :EndIf
      
-      r.(Secure Host Path)←secure(lc host)({{'/',¯1↓⍵/⍨⌽∨\'/'=⌽⍵}⍵↓⍨'/'=⊃⍵}path)
+      r.(Secure Host Port Path)←secure(lc host)port({{'/',¯1↓⍵/⍨⌽∨\'/'=⌽⍵}⍵↓⍨'/'=⊃⍵}path)
      
       hdrs←makeHeaders hdrs
       :If ~SuppressHeaders
@@ -407,105 +409,127 @@
       :EndIf
      
       :If ~0∊⍴Client                    ⍝ do we have a client already?
-      :AndIf HostSecure≢r.(Host Secure) ⍝ did we change host or secure?
+      :AndIf HostPortSecure≢r.(Host Port Secure) ⍝ did we change host or secure?
           {}{0::'' ⋄ LDRC.Close ⍵}Client     ⍝ if so, close the client
-          HostSecure←r.(Host Secure)    ⍝ and capture the new settings
+          HostPortSecure←r.(Host Port Secure)    ⍝ and capture the new settings
+          Client←''
       :EndIf
      
-      :If 0=⊃(err Client)←2↑rc←LDRC.Clt''host port'http' 100000,secureParams ⍝ 100,000 is max receive buffer size
      
+     
+      :If 0∊⍴Client
+          try←0
+          :Repeat
+              (err Client)←2↑rc←LDRC.Clt''host port'http'BufferSize,secureParams ⍝ 100,000 is max receive buffer size
+              try+←1
+              :If err≠0
+                  ⎕←⎕TS,'Error ',(⍕try),' creating client @ ',host,'...retrying after 1sec delay'
+                  (⊂'')⎕NPUT'conga.log' ⍝ create an empty conga.log
+                  ⎕TS,#.HttpCommand.LDRC.GetProp'.' 'TCPLookup' 'jenkins.dyalog.bramley' 80
+                  DRC.SetProp'.' 'Trace' 521
+                  ⎕DL 1
+              :EndIf
+          :Until err=0
+          :OrIf try>5
+          :If 0≠err
+              →∆END⊣r.msg←'Conga client creation failed ',,⍕1↓rc
+          :EndIf
+          :If DOSLimit≠¯1 ⍝ did the user set DOSLimit?
+              {}LDRC.SetProp'.' 'DOSLimit'DOSLimit
+          :EndIf
           {}LDRC.SetProp Client'DecodeBuffers' 15 ⍝ set advanced HTTP parsing
+      :EndIf
      
-          :If 0=⊃rc←LDRC.Send Client(req,NL,parms)
-              (timedOut done data datalen headerlen header chunked)←0 0 ⍬ 0 0 ⍬ 0
      
-              :Repeat
-                  :If ~done←0≠err←1⊃rc←LDRC.Wait Client 5000            ⍝ Wait up to 5 secs
-                      (err obj evt dat)←4↑rc
-                      :Select evt
-                      :Case 'HTTPHeader'
-                          :If 1=≡dat ⋄ →∆END⊣r.(Data msg)←dat'Conga failed to parse the response HTTP header' ⍝ HTTP header parsing failed?
-                          :Else
-                              r.(HttpVersion HttpStatus HttpMessage)←3↑dat
-                              header←4⊃dat
-                              datalen←⊃toInt{'∘???∘'≡⍵:'¯1' ⋄ ⍵}header Lookup'Content-Length' ⍝ ¯1 if no content length not specified
-                              chunked←∨/'chunked'⍷header Lookup'Transfer-Encoding'
-                              done←(cmd≡'HEAD')∨chunked<datalen<1
+     
+      :If 0=⊃rc←LDRC.Send Client(req,NL,parms)
+          (timedOut done data datalen headerlen header chunked)←0 0 ⍬ 0 0 ⍬ 0
+     
+          :Repeat
+              :If ~done←0≠err←1⊃rc←LDRC.Wait Client 5000            ⍝ Wait up to 5 secs
+                  (err obj evt dat)←4↑rc
+                  :Select evt
+                  :Case 'HTTPHeader'
+                      :If 1=≡dat ⋄ →∆END⊣r.(Data msg)←dat'Conga failed to parse the response HTTP header' ⍝ HTTP header parsing failed?
+                      :Else
+                          r.(HttpVersion HttpStatus HttpMessage)←3↑dat
+                          header←4⊃dat
+                          datalen←⊃toInt{'∘???∘'≡⍵:'¯1' ⋄ ⍵}header Lookup'Content-Length' ⍝ ¯1 if no content length not specified
+                          chunked←∨/'chunked'⍷header Lookup'Transfer-Encoding'
+                          done←(cmd≡'HEAD')∨chunked<datalen<1
                            ⍝↓↓↓ hack to deal with HTTP/1.0 behavior of no content-length and no transfer-encoding
                            ⍝    see item 7 under https://tools.ietf.org/html/rfc7230#section-3.3.3
-                              :If chunked<datalen=¯1
-                              :AndIf ∨/'close'⍷header Lookup'Connection' ⍝←←← not sure this is necessary
-                                  :Repeat
-                                      rc←LDRC.Wait Client 50
-                                  :Until 100≠⊃rc
-                                  :If 0=⊃rc
-                                  :AndIf rc[3]∊'BlkLast' 'HTTPBody' ⋄ data←4⊃rc
-                                  :EndIf
+                          :If chunked<datalen=¯1
+                          :AndIf ∨/'close'⍷header Lookup'Connection' ⍝←←← not sure this is necessary
+                              :Repeat
+                                  rc←LDRC.Wait Client 50
+                              :Until 100≠⊃rc
+                              :If 0=⊃rc
+                              :AndIf rc[3]∊'BlkLast' 'HTTPBody' ⋄ data←4⊃rc
                               :EndIf
                           :EndIf
-                      :Case 'HTTPBody' ⋄ data←dat ⋄ done←1
-                      :Case 'HTTPChunk'
-                          :If 1=≡dat ⋄ →∆END⊣r.(Data msg)←dat'Conga failed to parse the response HTTP chunk' ⍝ HTTP chunk parsing failed?
-                          :Else ⋄ data,←1⊃dat
-                          :EndIf
-                      :Case 'HTTPTrailer'
-                          :If 2≠≢⍴dat ⋄ →∆END⊣r.(Data msg)←dat'Conga failed to parse the response HTTP trailer' ⍝ HTTP trailer parsing failed?
-                          :Else ⋄ header⍪←dat ⋄ done←1
-                          :EndIf
-                      :Case 'HTTPFail' ⋄ →∆END⊣r.(Data msg)←dat'Conga failed to parse the HTTP reponse'
-                      :Case 'Timeout' ⋄ timedOut←done←⎕AI[3]>donetime
-                      :Case 'Error' ⋄ →∆END⊣r.msg←'Conga error processing your request: ',,⍕rc
-                      :Else ⋄ →∆END⊣r.msg←'*** Unhandled Conga event type - ',evt ⍝ This shouldn't happen
-                      :EndSelect
-                  :ElseIf 100=err ⋄ timedOut←done←⎕AI[3]>donetime ⍝ timeout?
-                  :Else ⋄ r.msg←'Conga wait error ',,⍕rc ⍝ some other error (very unlikely)
-                  :EndIf
-              :Until done
-     
-              :If timedOut ⋄ →∆END⊣r.(rc msg)←(⊃rc)'Request timed out before server responded'
-              :EndIf
-              :If 0=err
-                  r.HttpStatus←toInt r.HttpStatus
-                  :Trap Debug↓0 ⍝ If any errors occur, abandon conversion
-                      :Select z←header Lookup'content-encoding' ⍝ was the response compressed?
-                      :Case '∘???∘' ⍝ no content-encoding header, do nothing
-                      :Case 'deflate'
-                          data←120 ¯100{(2×⍺≡2↑⍵)↓⍺,⍵}83 ⎕DR data ⍝ append 120 156 signature because web servers strip it out due to IE
-                          data←fromutf8 256|¯2(219⌶)data
-                      :Case 'gzip' ⋄ data←fromutf8 256|¯3(219⌶)83 ⎕DR data
-                      :Else ⋄ r.msg←'Unhandled content-encoding: ',z
-                      :EndSelect
-     
-                      :If 0<≢'charset\s*=\s*utf-8'⎕S'&'⍠1⊢header Lookup'content-type'
-                          data←'UTF-8'⎕UCS ⎕UCS data ⍝ Convert from UTF-8
-                          data←(65279=⎕UCS⊃data)↓data ⍝ drop off BOM, if any
                       :EndIf
-                  :EndTrap
-                  (domain path)←r.(Host Path)
-                  Cookies←Cookies updateCookies r.Cookies←parseCookies header domain(extractPath path) ⍝!!!
-                  :If (r.HttpStatus∊301 302 303 307 308)>0=MaxRedirections ⍝ if redirected and allowing redirections
-                      :If MaxRedirections<.=¯1,≢r.Redirections ⋄ →∆END⊣r.(rc msg)←¯1('Too many redirections (',(⍕MaxRedirections),')')
-                      :Else
-                          :If '∘???∘'≢url←header Lookup'location' ⍝ if we were redirected use the "location" header field for the URL
-                              r.Redirections,←t←#.⎕NS''
-                              t.Headers←header
-                              t.(URL HttpVersion HttpStatus HttpMessage)←r.(URL HttpVersion HttpStatus HttpMessage)
-                              (secure domain path urlparms)←parseURL url
-                              {}LDRC.Close Client
-                              cmd←(1+303=r.HttpStatus)⊃cmd'GET' ⍝ 303 (See Other) is always followed by a 'GET'. See https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/303
-                              →∆GET
-                          :Else ⋄ r.msg←'Redirection detected, but no "location" header supplied.' ⍝ should never happen from a properly functioning server
-                          :EndIf
+                  :Case 'HTTPBody' ⋄ data←dat ⋄ done←1
+                  :Case 'HTTPChunk'
+                      :If 1=≡dat ⋄ →∆END⊣r.(Data msg)←dat'Conga failed to parse the response HTTP chunk' ⍝ HTTP chunk parsing failed?
+                      :Else ⋄ data,←1⊃dat
                       :EndIf
-                  :EndIf
-                  :If secure
-                  :AndIf 0=⊃z←LDRC.GetProp Client'PeerCert' ⋄ r.PeerCert←2⊃z
-                  :EndIf
+                  :Case 'HTTPTrailer'
+                      :If 2≠≢⍴dat ⋄ →∆END⊣r.(Data msg)←dat'Conga failed to parse the response HTTP trailer' ⍝ HTTP trailer parsing failed?
+                      :Else ⋄ header⍪←dat ⋄ done←1
+                      :EndIf
+                  :Case 'HTTPFail' ⋄ →∆END⊣r.(Data msg)←dat'Conga failed to parse the HTTP reponse'
+                  :Case 'Timeout' ⋄ timedOut←done←⎕AI[3]>donetime
+                  :Case 'Error' ⋄ →∆END⊣r.msg←'Conga error processing your request: ',,⍕rc
+                  :Else ⋄ →∆END⊣r.msg←'*** Unhandled Conga event type - ',evt ⍝ This shouldn't happen
+                  :EndSelect
+              :ElseIf 100=err ⋄ timedOut←done←⎕AI[3]>donetime ⍝ timeout?
+              :Else ⋄ r.msg←'Conga wait error ',,⍕rc ⍝ some other error (very unlikely)
               :EndIf
-              r.(Headers Data)←header data
-          :Else ⋄ r.msg←'Conga connection failed ',,⍕1↓rc
+          :Until done
+     
+          :If timedOut ⋄ →∆END⊣r.(rc msg)←(⊃rc)'Request timed out before server responded'
           :EndIf
-      :Else ⋄ r.msg←'Conga client creation failed ',,⍕1↓rc
+          :If 0=err
+              r.HttpStatus←toInt r.HttpStatus
+              :Trap Debug↓0 ⍝ If any errors occur, abandon conversion
+                  :Select z←header Lookup'content-encoding' ⍝ was the response compressed?
+                  :Case '∘???∘' ⍝ no content-encoding header, do nothing
+                  :Case 'deflate'
+                      data←120 ¯100{(2×⍺≡2↑⍵)↓⍺,⍵}83 ⎕DR data ⍝ append 120 156 signature because web servers strip it out due to IE
+                      data←fromutf8 256|¯2(219⌶)data
+                  :Case 'gzip' ⋄ data←fromutf8 256|¯3(219⌶)83 ⎕DR data
+                  :Else ⋄ r.msg←'Unhandled content-encoding: ',z
+                  :EndSelect
+     
+                  :If 0<≢'charset\s*=\s*utf-8'⎕S'&'⍠1⊢header Lookup'content-type'
+                      data←'UTF-8'⎕UCS ⎕UCS data ⍝ Convert from UTF-8
+                      data←(65279=⎕UCS⊃data)↓data ⍝ drop off BOM, if any
+                  :EndIf
+              :EndTrap
+              (domain path)←r.(Host Path)
+              Cookies←Cookies updateCookies r.Cookies←parseCookies header domain(extractPath path) ⍝!!!
+              :If (r.HttpStatus∊301 302 303 307 308)>0=MaxRedirections ⍝ if redirected and allowing redirections
+                  :If MaxRedirections<.=¯1,≢r.Redirections ⋄ →∆END⊣r.(rc msg)←¯1('Too many redirections (',(⍕MaxRedirections),')')
+                  :Else
+                      :If '∘???∘'≢url←header Lookup'location' ⍝ if we were redirected use the "location" header field for the URL
+                          r.Redirections,←t←#.⎕NS''
+                          t.Headers←header
+                          t.(URL HttpVersion HttpStatus HttpMessage)←r.(URL HttpVersion HttpStatus HttpMessage)
+                          (secure domain path urlparms)←parseURL url
+                          {}LDRC.Close Client
+                          cmd←(1+303=r.HttpStatus)⊃cmd'GET' ⍝ 303 (See Other) is always followed by a 'GET'. See https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/303
+                          →∆GET
+                      :Else ⋄ r.msg←'Redirection detected, but no "location" header supplied.' ⍝ should never happen from a properly functioning server
+                      :EndIf
+                  :EndIf
+              :EndIf
+              :If secure
+              :AndIf 0=⊃z←LDRC.GetProp Client'PeerCert' ⋄ r.PeerCert←2⊃z
+              :EndIf
+          :EndIf
+          r.(Headers Data)←header data
+      :Else ⋄ r.msg←'Conga connection failed ',,⍕1↓rc
       :EndIf
       r.rc←1⊃rc ⍝ set the return code to the Conga return code
      ∆END:
@@ -600,13 +624,17 @@
 
     ∇ cookies←parseCookies(headers host path);cookie;segs;setcookie;seg;value;name;domain
     ⍝ Parses set-cookie headers into cookie array
+    ⍝ Attempts to follow RFC6265 https://datatracker.ietf.org/doc/html/rfc6265
       :Access public shared ⍝ remove this after testing!!!
       cookies←⍬
       :For setcookie :In headers tableGet'set-cookie'
           segs←dltb¨¨2↑¨'='splitOnFirst⍨¨dltb¨setcookie splitOn';'
-          (cookie←#.⎕NS'').(Name Value Domain Path HttpOnly Secure Expires SameSite Other)←'' ''host'' 0 0 '' '' ''
+          (cookie←#.⎕NS'').(Name Value Host Domain Path HttpOnly Secure Expires SameSite Creation Other)←'' ''host'' '/' 0 0 '' ''Now''
           →∆NEXT⍴⍨0∊≢¨cookie.(Name Value)←⊃segs
-          :For name value :In 1↓segs
+          segs←1↓segs
+     
+          segs/⍨←⌽(⍳∘≢=⍳⍨)⌽lc⊃¨segs ⍝ select the last occurence of each attribute
+          :For name value :In segs
               :Select lc name
               :Case 'expires'
                   :If ''≡cookie.Expires ⍝ if Expires was set already from MaxAge, MaxAge takes precedence
@@ -616,8 +644,9 @@
                   cookie.Expires←Now+TStoIDN 1899 12 31 0 0,toInt value
               :Case 'domain' ⍝ RCF 6265 Sec. 5.2.3
                   →∆NEXT⍴⍨0∊⍴domain←lc value ⍝ cookies with empty domain values are ignored
-                  :If domain≢host
-                  :AndIf host endsWith domain←('.'=⊃domain)↓'.',domain
+                  :If domain≡host
+                      domain←host
+                  :ElseIf host endsWith domain←('.'=⊃domain)↓'.',domain
                       cookie.Domain←domain
                   :Else ⋄ →∆NEXT
                   :EndIf

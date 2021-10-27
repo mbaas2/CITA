@@ -30,13 +30,15 @@
 ⍝ 2020 06 03 Adam: Handle missing stack frame, avoid trailing spaces
 ⍝ 2020 06 08 Adam: Make use of ⎕PW semi-global
 ⍝ 2020 06 11 Adam: [18236] Fix Box button callback
-⍝ 2020 07 20 Adam: trap and resignal on WS FULL after error
+⍝ 2020 07 20 Adam: trap and resignal on WS FULL after error          
+⍝ 2021 10 26 MBaas: added ]output.find -ts
 
     ⎕io← ⎕ml←1
     OUTSpace ← '⎕se.Dyalog.Out' ⋄ Var←{0::⍵ ⋄ ⎕se.SALTUtils.LastResultVarName}⍬⊤⍬
     enableLastResult←0
     enableBoxPfkey←0
     enableBoxButton←1
+
 
     ∇ r←List;cmds           ⍝ Name, group, short description and parsing rules
       cmds←'LastResult' 'Box' 'Boxing' 'Rows' 'Find'
@@ -52,7 +54,7 @@
       r[cmds⍳⊂'LastResult'].Parse←'1S  -pfkey='
       r[cmds⍳'Box' 'Boxing'].Parse←⊂'1S -fns="off on" -style="min mid max" -trains="box tree parens def"',enableBoxPfkey/' -pfkey='
       r[cmds⍳⊂'Rows'].Parse←'1S -fns="off on" -style="long cut wrap" -dots= -fold='
-      r[cmds⍳⊂'Find'].Parse←'1 -includequadoutput'
+      r[cmds⍳⊂'Find'].Parse←'1 -includequadoutput -ts'
      
       r/⍨←enableLastResult∨cmds≢¨⊂'LastResult'
     ∇
@@ -214,7 +216,7 @@
           :Select arg
           :CaseList 'on' 'off'
               r←'Was ',O.F.state
-              O.F.state←arg ⋄ O.F.includequadoutput←Input.includequadoutput
+              O.F.state←arg ⋄ O.F.(includequadoutput ts)←Input.(includequadoutput ts)
           :Case 0 1/¨'?'
               r←'Is ',O.F.state
           :Else
@@ -417,7 +419,7 @@
      
       :Case 'Find'
           r←⊂'Precede output with a reference to the line of code that generated it'
-          r,←⊂'    ]OUTPUT.',Cmd,' {on|off|?} [-includequadoutput]'
+          r,←⊂'    ]OUTPUT.',Cmd,' {on|off|?} [-includequadoutput] [-ts]'
           r,←⊂''
           :If level=0
               r,←⊂']OUTPUT.',Cmd,' -?? ⍝ for more information and examples'
@@ -445,7 +447,8 @@
               r,←⊂'    Line not starting with ⎕'
               r,←⊂'    ⎕← Output from #.foo[2]'
               r,←⊂'    Line with ⎕←'
-     
+              r,←⊂'-ts'
+              r,←⊂' Show timestamp with every output'
           :EndIf
      
       :Case 'LastResult'
@@ -520,8 +523,9 @@
                   ~oon:0
                   (fn lc)←⍵
                   ⍝ lc←1⌈lc ⍝ why was this here?
+                  pre←F.ts/,'ZI4,<->,ZI2,<->,ZI2,< >,ZI2,<:>,ZI2,<:>,ZI2,<.>,ZI3'⎕fmt 1 7⍴⎕ts
                   F.includequadoutput<'⎕'∊qo←'⎕←>>'/⍨2/⍲\2/'⎕←'≡2↑{(+/∧\' '=⍵)↓⍵}(1+lc)⌷⎕CR fn:0
-                  ⊢⎕←qo,' Output from ',fn,1⌽'][',⍕lc
+                  ⊢⎕←qo,pre,' Output from ',fn,1⌽'][',⍕lc
               }
               _←FindOutput 3⊃¨⎕XSI ⎕LC,¨0
               fmt←{                               ⍝ formatting style.
