@@ -52,6 +52,7 @@
  ⍝ set up ⎕SE._cita
      NL←⎕UCS 13
      :If 'on'≡⎕se.SALTUtils.lCase Env'UDEBUG'
+     :orif 1
          ⎕SE.UCMD'UDEBUG ON'
      :EndIf
      ⎕←'UDEBUG=',(1+⎕se.SALTUtils.DEBUG)⊃'OFF' 'ON'

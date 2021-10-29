@@ -22,15 +22,44 @@
       stages {
         stage ("Cleanup") {
           agent {
-            <!-- label "aix&&18.2&&cita_latest" -->
             label "mac&&18.2&&cita_latest"
           }
           steps {
-            cleanWs()
-            catchError(buildResult: "UNSTABLE", stageResult: "FAILURE") {
-              sh "/opt/mdyalog/18.2/64/unicode/p8/mapl load=/devt/apltools/CITA/CITA-Tests/cleanup.aplf configfile=/devt/apltools/CITA/CITA-Tests/cleanup.dcfg FOLDER=%xinD%"              
-              //sh "exit 0"  // end this step w/o problem-status, as it would avoid execution of next steps...
-            }
+            script {
+              cleanWs()
+              catchError(buildResult: "UNSTABLE", stageResult: "FAILURE") {
+                def citaDEVT="/devt/"
+                def folder = "%xinD%"
+                echo "node=${env.NODE_NAME}"
+                if ("${env.NODE_NAME}"=="mac3") {
+                  citaDEVT = "/Volumes/devt"
+                  echo "folder pre-replace: $folder"
+                  folder= folder.replaceAll("(^|=)/devt/","\$1/Volumes/devt/") 
+                  // folder.replaceAll("(?<![^=])/devt/","/Volumes/devt/")
+                  echo "replaced in folder. new value is $folder"
+                }
+                path = "/Dyalog/Dyalog-18.2.app/Contents/Resources/Dyalog/mapl"
+                exists = fileExists(path)      
+                if (exists) {
+                  echo "PLATFORM=mac, path=${path}: File exists!"
+                } else {
+                  echo "PLATFORM=mac, path=${path}: File does not exist, trying another path"
+                  path = "/Applications/Dyalog-18.2.app/Contents/Resources/Dyalog/mapl"
+                  exists = fileExists(path)          
+                  if (exists) {
+                    echo "PLATFORM=mac, path=${path}: File exists!"
+                  } else {
+                    error "PLATFORM=mac, path=${path}: File does not exist, giving it up!"
+                  }
+                }                
+                echo "executing $path load=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.aplf configfile=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.dcfg FOLDER=$folder"              
+                sh "$path load=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.aplf configfile=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.dcfg FOLDER=$folder"              
+
+                // use this for AIX:
+                //sh "/opt/mdyalog/18.2/64/unicode/p8/mapl load=$dvt/apltools/CITA/CITA-Tests/cleanup.aplf configfile=/devt/apltools/CITA/CITA-Tests/cleanup.dcfg FOLDER=%xinD%"              
+                //sh "exit 0"  // end this step w/o problem-status, as it would avoid execution of next steps...
+              }
+           }
           }
         }
         stage ("Run Tests") {
@@ -40,13 +69,15 @@
         }
         stage ("Unlock") {
           agent {
-            label "aix&&18.2&&cita_latest"
+            label "pi&&18.2&&cita_latest"  // do not run this on AIX
           }
           steps {
             script {
-              def LOCKFILE="%LOCKFILE%"
-              if (LOCKFILE != "") {
-                sh "rm $LOCKFILE"
+              catchError(buildResult: "UNSTABLE", stageResult: "FAILURE") {
+                def LOCKFILE="%LOCKFILE%"
+                if (LOCKFILE != "") {
+                  sh "rm $LOCKFILE"
+                }
               }
             } 
           }

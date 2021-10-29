@@ -6,7 +6,7 @@
 
     ∇ r←Version
       :Access Public Shared
-      r←'APLProcess' '2.2' '15 June 2021'
+      r←'APLProcess' '2.2' '15 June 2021'  ⍝ MUST be updated!
     ∇
 
     :Field Public Args←''
@@ -19,6 +19,7 @@
     :Field Public RideInit←''
     :Field Public OutFile←''
     :Field Public WorkingDir←''
+    :field public psLogFile←''  ⍝ for _PS-calls
 
     endswith←{w←,⍵ ⋄ a←,⍺ ⋄ w≡(-(⍴a)⌊⍴w)↑a}
     tonum←{⊃⊃(//)⎕VFI ⍵}
@@ -32,6 +33,11 @@
     ∇ r←IsMac
       :Access public shared
       r←'Mac'≡Platform
+    ∇
+
+    ∇ r←IsAIX
+      :Access public shared
+      r←'AIX'≡Platform
     ∇
 
     ∇ r←Platform
@@ -129,9 +135,12 @@
               z←⍕GetCurrentProcessId
               output←(1+×≢OutFile)⊃'/dev/null'OutFile
               cmd,←'{ ',args,' ',Exe,' +s -q ',ws,' -c APLppid=',z,' </dev/null >',output,' 2>&1 & } ; echo $!'
+              ⎕←'cmd=',cmd
               pid←_SH cmd
+              ⎕←'pid=',pid
               Proc.Id←pid
               Proc.HasExited←HasExited
+	          ⎕←'HasExited=',Proc.HasExited
           :EndIf
           Proc.StartTime←⎕NEW Time ⎕TS
       :EndIf
@@ -431,7 +440,10 @@
     ∇ r←UNIXIsRunning pid;txt
     ⍝ Return 1 if the process is in the process table and is not a defunct
       r←0
-      →(r←' '∨.≠txt←UNIXGetShortCmd pid)↓0
+      txt←UNIXGetShortCmd pid
+      ⎕←'UNIXIsRunning.txt="',txt,'"'
+      ⎕←'dr txt=',⍕⎕dr txt
+      →(r←' '∨.≠txt)↓0
       r←~∨/'<defunct>'⍷txt
     ∇
 
@@ -446,22 +458,37 @@
     ∇
 
     ∇ r←UNIXGetShortCmd pid;cmd
-      ⍝ Retrieve sort form of cmd used to start process <pid>
+      ⍝ Retrieve short form of cmd used to start process <pid>
       cmd←(1+IsMac)⊃'cmd' 'command'
-      cmd←'ps -o ',cmd,' -p ',(⍕pid),' 2>/dev/null ; exit 0'
+      :if IsAIX ⋄ cmd←'comm' ⋄ :endif
+      cmd←'-o ',cmd,' -p ',(⍕pid)   ⍝ the argument for the ps call
       :If {2::0 ⋄ IsSsh}'' ⍝ instance?
           ∘∘∘
       :Else
-    ⍝   ⎕←'UNIXGetShortCmd ',(⍕pid)
-    ⍝   ⎕←'cmd=',cmd
-    ⍝   ⎕←'dr cmd=',⎕dr cmd
-          r←⊃1↓⎕SH cmd
+      :trap 11
+          r←_PS cmd
+          :else 
+          r←''
+          :endtrap
       :EndIf
     ∇
 
-    ∇ r←_PS cmd;ps
-      ps←'ps ',⍨('AIX'≡3↑⊃'.'⎕WG'APLVersion')/'/usr/sysv/bin/'    ⍝ Must use this ps on AIX
-      r←1↓⎕SH ps,cmd,' 2>/dev/null; exit 0'                  ⍝ Remove header line
+    ∇ r←_PS cmd;ps;log
+      ps←'ps ',⍨IsAIX/'/usr/sysv/bin/'    ⍝ Must use this ps on AIX
+      log←'/dev/null'
+      :if 0<≢psLogFile 
+       log←psLogFile 
+        :endif
+      :trap 0
+      ⎕←'_PS: '
+      r←1↓r1←⎕SH ⎕←ps,cmd,' 2>',log,';'
+      ⎕←'r="',r,'"'
+      :else 
+          :if 0<≢psLogFile 
+          (⊂(⎕←⎕json⍠'Compact'0)⎕dmx)⎕nput psLogFile 2
+          :endif
+          ⎕DMX.Message ⎕signal 11
+      :endtrap
     ∇
 
     ∇ r←{quietly}_SH cmd

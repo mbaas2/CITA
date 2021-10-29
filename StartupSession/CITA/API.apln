@@ -526,6 +526,7 @@
                       :EndSelect
      
                   :EndIf
+                  ⎕←'jobR=',jobR
                   jobR[1]←(jobR[1]{∧/0=⍺,1⊃⍵:0 ⋄ 1⊃⍵}R)
                   jobR[2]←⊂(2⊃jobR),2⊃R
                   :If step≡'test'
@@ -573,9 +574,9 @@
               :Case ''            ⍝ -keep=  > delete everything, keep nothing!
                   del←list2
               :EndSelect
-              ⎕←'keep="',keep,'"'
-              ⎕←'del='
-              ⎕←↑del
+            ⍝   ⎕←'keep="',keep,'"'
+            ⍝   ⎕←'del='
+            ⍝   ⎕←↑del
               :Trap DEBUG↓0
                   :For item :In (⌽del),⊂xin
                       :If ⎕NEXISTS item
@@ -615,6 +616,8 @@
       ns.testMat←resTab
       cmnt←NL,'/***************** Results *******************',NL,(,(⍕resTab),⊂NL),'****************************/',NL
       (⊂cmnt{⍵[1],⍺,1↓⍵}(⎕JSON⍠'Compact' 0)Results)⎕NPUT xinO,'CITA.log.json'
+      ⎕←'Following data wil be written into ',xinO,'CITA.log.json'
+      ⎕←(⊂cmnt{⍵[1],⍺,1↓⍵}(⎕JSON⍠'Compact' 0)Results)
     ∇
 
     ∇ info txt
@@ -1144,9 +1147,10 @@
               cmd,←' WFR=1' ⍝ WFR=WaitForRide → if RunCITA sees this, it will wait until GhostRider has connected
           :EndIf
           port←55355
-          ⎕←(1⊃⎕SI),'[',(⍕1⊃⎕LC),'] Creating new APLProcess. dws=',dws,', cmd=',cmd,', xin=',xin,', RIDE_INIT=serve:127.0.0.1:',⍕port
           outfile←xin,'output.txt'
+          ⎕←(1⊃⎕SI),'[',(⍕1⊃⎕LC),'] Creating new APLProcess. dws=',dws,', cmd=',cmd,', outfile=',outfile,' | xin=',xin,', RIDE_INIT=serve:127.0.0.1:',(⍕port),' | outfile = ',outfile
           proc←⎕NEW ##.APLProcess(dws cmd(interpreter{0::0 ⋄ ⍺⍎⍵}'exe')('serve:127.0.0.1:',⍕port)outfile xin) ⋄ ai3←⎕AI[3]
+          proc.psLogFile←xin,'/pslog.txt'
           :If GhostRiderFlag=1
               ⎕DL 1  ⍝ give it some time to launch...
               :Trap 0

@@ -1,4 +1,4 @@
-﻿:Namespace outputspec ⍝ V1.44
+﻿:Namespace outputspec ⍝ V1.52
 ⍝ System user Command
 ⍝
 ⍝ 2015 05 21 Adam: NS header
@@ -30,7 +30,14 @@
 ⍝ 2020 06 03 Adam: Handle missing stack frame, avoid trailing spaces
 ⍝ 2020 06 08 Adam: Make use of ⎕PW semi-global
 ⍝ 2020 06 11 Adam: [18236] Fix Box button callback
-⍝ 2020 07 20 Adam: trap and resignal on WS FULL after error          
+⍝ 2020 07 20 Adam: trap and resignal on WS FULL after error
+⍝ 2021 02 23 Adam: add box -style=non
+⍝ 2021 04 26 Adam: Handle class methods
+⍝ 2021 05 04 Adam: Avoid printing uncalled-for trailing spaces
+⍝ 2021 05 20 Adam: Avoid printing empty line on empty output
+⍝ 2021 08 12 Adam: Support simulation of (non-)suspension, and choosing to print or return "image"
+⍝ 2021 08 13 Adam: Add ]box -view= like -style but for ]view
+⍝ 2021 10 08 Adam: Guarantee number of elements in event msg, ensure output can be interrupted
 ⍝ 2021 10 26 MBaas: added ]output.find -ts
 
     ⎕io← ⎕ml←1
@@ -38,7 +45,6 @@
     enableLastResult←0
     enableBoxPfkey←0
     enableBoxButton←1
-
 
     ∇ r←List;cmds           ⍝ Name, group, short description and parsing rules
       cmds←'LastResult' 'Box' 'Boxing' 'Rows' 'Find'
@@ -52,7 +58,7 @@
       r[cmds⍳⊂'Find'].Desc←'Precede output with a reference to the line of code that generated it'
      
       r[cmds⍳⊂'LastResult'].Parse←'1S  -pfkey='
-      r[cmds⍳'Box' 'Boxing'].Parse←⊂'1S -fns="off on" -style="min mid max" -trains="box tree parens def"',enableBoxPfkey/' -pfkey='
+      r[cmds⍳'Box' 'Boxing'].Parse←⊂'1S -fns="off on" -style="non min mid max" -view="non min mid max" -trains="box tree parens def"',enableBoxPfkey/' -pfkey='
       r[cmds⍳⊂'Rows'].Parse←'1S -fns="off on" -style="long cut wrap" -dots= -fold='
       r[cmds⍳⊂'Find'].Parse←'1 -includequadoutput -ts'
      
@@ -68,7 +74,7 @@
       :If 0∊⎕NC↑subs←'O.B' 'O.R' 'O.L' 'O.F'      ⍝ spaces for Box, Rows, LastResult and Find
           ⎕NS∘''¨subs                             ⍝ create state-spaces.
           O.(B R).(state fns)←⊂⊂'off'             ⍝ all states OFF
-          O.B.(style trains)←'min' 'box'          ⍝ default args for Boxing.
+          O.B.(style trains view)←3⍴'min' 'box'   ⍝ default args for Boxing.
           O.R.(style fold dots)←'long' 'off' '·'  ⍝ default args for Rows.
           O.L.state←O.F.state←'off'               ⍝ don't show where output is produced in programs by default
           O.F.includequadoutput←0                 ⍝ don't show ⎕ output by default
@@ -77,10 +83,6 @@
      
       :Select Cmd
       :CaseList 'Box' 'Boxing'
-     
-          :If 0=⎕NC'O.B.trains'                   ⍝ Update Tech Preview session
-              O.B.trains←'box'                    ⍝ default to boxed fns
-          :EndIf
      
           arg←U.lcase⊃Input.Arguments,⊂''         ⍝ single optional argument.
      
@@ -103,19 +105,21 @@
           :Case ,'?'
               r←']boxing ',U.ucase O.B.state
               r,←' -style=',O.B.style
+              r,←' -view=',O.B.view
               r,←' -trains=',O.B.trains
               r,←' -fns=',O.B.fns
               ⍝r,←' -chars=',O.B.chars
           :Case ''
-              :If 0∧.≡Input.(style trains fns)
+              :If 0∧.≡Input.(style view trains fns)
               ⍝:If 0∧.≡Input.(style trains chars fns)
                   r←'Is ',U.ucase O.B.state
               :EndIf
           :Case 'reset'
-              O.B.(style trains fns)←'min' 'box' 'off'
+              O.B.(style trains fns view)←4⍴'min' 'box' 'off'
               ⍝O.B.(style trains fns chars)←'min' 'box' 'off' 'regular'
               r←']boxing ',U.ucase O.B.state
               r,←' -style=',O.B.style
+              r,←' -view=',O.B.view
               r,←' -trains=',O.B.trains
               r,←' -fns=',O.B.fns
               ⍝r,←' -chars=',O.B.chars
@@ -123,9 +127,15 @@
               r←'Arguments: ON OFF RESET ?'
           :EndSelect
      
-          :If Input.style≢0                 ⍝ -style=min mid max
+          :If Input.style≢0                 ⍝ -style=non min mid max
               r,←' -style=',O.B.style
               O.B.style←Input.style
+              ⍝O.B.state←⊃(arg≡'off')⌽'on' 'off'
+          :EndIf
+     
+          :If Input.view≢0                 ⍝ -view=non min mid max
+              r,←' -view=',O.B.view
+              O.B.view←Input.view
               ⍝O.B.state←⊃(arg≡'off')⌽'on' 'off'
           :EndIf
      
@@ -261,7 +271,7 @@
       :Select Cmd
       :CaseList 'Box' 'Boxing'
           r,←⊂'Display output with borders indicating shape, type and structure'
-          r,←⊂'    ]',Cmd,' [on|off|reset|?] [-style={min|mid|max}] [-trains={box|tree|parens|def}] [-fns={off|on}]',' [-pfkey=[S][C][A]<n>]'/⍨enableBoxPfkey∧⎕SE.SALTUtils.WIN
+          r,←⊂'    ]',Cmd,' [on|off|reset|?] [-style={non|min|mid|max}] [-view={non|min|mid|max}] [-trains={box|tree|parens|def}] [-fns={off|on}]',' [-pfkey=[S][C][A]<n>]'/⍨enableBoxPfkey∧⎕SE.SALTUtils.WIN
           r,←⊂''
           :If 0=level
               r,←⊂']',Cmd,' -?? ⍝ for more information and examples'
@@ -278,14 +288,15 @@
                   r,←⊂'    "?"       query current state including modifiers'
                   r,←⊂''
               :EndIf
-              r,←⊂'-style={min|mid|max}  amount of diagram detail'
+              r,←⊂'-style={off|min|mid|max}  amount of diagram detail in Session'
+              r,←⊂'-view={off|min|mid|max}   amount of diagram detail when using ]View'
               :If 2≤level
-                  r,←⊂'    ┌───┬──────┐    ┌→──┬──────┐    ┌→───────────────┐'
-                  r,←⊂'    │min│boxing│    │mid│boxing│    │ ┌→──┐ ┌→─────┐ │'
-                  r,←⊂'    └───┴──────┘    └──→┴─────→┘    │ │max│ │boxing│ │'
-                  r,←⊂'                                    │ └───┘ └──────┘ │'
-                  r,←⊂'    min:  no border decoration      └∊───────────────┘'
-⍝                  r,←⊂'    min:  no border decoration'
+                  r,←⊂'     off  boxing     ┌───┬──────┐    ┌→──┬──────┐    ┌→───────────────┐'
+                  r,←⊂'                     │min│boxing│    │mid│boxing│    │ ┌→──┐ ┌→─────┐ │'
+                  r,←⊂'                     └───┴──────┘    └──→┴─────→┘    │ │max│ │boxing│ │'
+                  r,←⊂'                                                     │ └───┘ └──────┘ │'
+                  r,←⊂'    non:  no borders                                 └∊───────────────┘'
+                  r,←⊂'    min:  no border decoration'
                   r,←⊂'    mid:  axes are indicated as follows:'
                   r,←⊂'            ↓  leading axis   (length>0)'
                   r,←⊂'            →  trailing axis  (length>0)'
@@ -313,6 +324,7 @@
                   ⍝r,←⊂''
                   r,←⊂'NOTES:'
                   r,←⊂'    ∘  For mid and max, content is prototypical if any axis has length=0.'
+                  r,←⊂'    ∘  -style=non is similar to non-boxed output, but fixes newline issues'
                   r,←⊂'    ∘  -style=mid is similar to always using ]Disp'
                   r,←⊂'    ∘  -style=max is similar to always using ]Display'
                   r,←⊂''
@@ -489,23 +501,40 @@
       r←1
     ∇
 
-    ∇ {A}Filter event                     ⍝ various output filters.
-      ;susp;rand;⎕PP;monad;∆_;text;DispFmt;trace;⎕PW
+    ∇ {output}←{A}Filter event            ⍝ various output filters.
+      ;susp;rand;⎕PP;monad;text;DispFmt;trace;⎕PW;LFmt;Split;sim
       ⎕PP←⍬⍴⎕RSI.⎕PP                      ⍝ current space's precision.
-      :Trap 0 1000                        ⍝ catching errors & interrupts.
-          event↑⍨←4                       ⍝ ensure enough args
+      :If 0=⎕NC'DEBUG'
+          DEBUG←0
+      :EndIf
+      (1+50100⌶2≤DEBUG)⎕STOP⊃⎕SI          ⍝ stop here?
+      :Trap 0 1000↓⍨DEBUG                 ⍝ catching errors & interrupts.
+          :If sim←⍬≡⍴event ⍝ simulating
+              event←⌽2⊥⍣¯1⊢event ⍝ unpack little-endian: (non-)suspension, return result instead of printing
+          :EndIf
+          event←4↑event,⍬ ⍬ ⍬             ⍝ ensure enough args
+     
           :If monad←900⌶0
               A←0
           :EndIf
-          :If trace←event[2]∊'SessionTrace' 527
-              text←(2⊃⎕XSI),'[',(⍕4⊃event),']'
-              ∆_←{⍞←text ⍵↓⍨-monad ⋄ ⍞←⎕UCS 13}
-          :Else
-              ∆_←{⎕←⍵}
-          :EndIf
+          trace←event[2]∊'SessionTrace' 527
           susp←2=-/(,⎕STACK)⍳'*' '⎕DQ'    ⍝ execution suspended.
-          susp∨←event≡1                   ⍝ simulate suspension?
+          susp∨←1≡⊃event                  ⍝ simulate suspension?
+          susp∧←0≢⊃event                  ⍝ simulate non-suspension?
           A{⍎'rand←⍺⍺' ⋄ ⍺⍺}0             ⍝ naming of fn/var "rand".
+          Split←{(+/∨\' '≠⌽⍵)↑¨↓⍵}
+          LFmt←{
+              SubFmt←{ ⍝ ⎕FMT but substituting spaces with ⍺
+                  e←∊w←⍵
+                  (∊w)←⍺@(' '∘=)e
+                  ⎕FMT w
+              }
+              spaceSubs←⎕UCS 0 1            ⍝ substitution chars
+              fmts←spaceSubs SubFmt¨⊂⍵
+              oldSpaces←↓⊃∧/spaceSubs=fmts  ⍝ indicate real spaces in each line
+              split←Split⊃fmts              ⍝ work with substituted spaces, not to strip them
+              oldSpaces{' '@(⍺↑⍨≢)⍵}¨split  ⍝ put spaces back in where they were
+          }
           DispFmt←{                       ⍝ display formatted output.
               isa←2 9∨.=⎕NC'rand'         ⍝ operand is array or namespace.
               O U←⎕SE.Dyalog.(Out Utils)  ⍝ output and utils namespaces.
@@ -516,7 +545,7 @@
                   0
               }
               _←⍵ CaptureResult isa∧O.L.state≡'on' ⍝ capture result?
-              0 0 0≡rb,oon:∆_ ⍵           ⍝ all off: no formatting.
+              0 0 0≡rb,oon:⊂⍵           ⍝ all off: no formatting.
               FindOutput←{
                   trace:0
                   0 ''∊⍨⍬⍴⍵:0
@@ -524,7 +553,7 @@
                   (fn lc)←⍵
                   ⍝ lc←1⌈lc ⍝ why was this here?
                   pre←F.ts/,'ZI4,<->,ZI2,<->,ZI2,< >,ZI2,<:>,ZI2,<:>,ZI2,<.>,ZI3'⎕fmt 1 7⍴⎕ts
-                  F.includequadoutput<'⎕'∊qo←'⎕←>>'/⍨2/⍲\2/'⎕←'≡2↑{(+/∧\' '=⍵)↓⍵}(1+lc)⌷⎕CR fn:0
+                  F.includequadoutput<'⎕'∊qo←'⎕←>>'/⍨2/⍲\2/'⎕←'≡2↑{(+/∧\' '=⍵)↓⍵}(1+lc)⌷180⌶fn:0
                   ⊢⎕←qo,pre,' Output from ',fn,1⌽'][',⍕lc
               }
               _←FindOutput 3⊃¨⎕XSI ⎕LC,¨0
@@ -541,23 +570,49 @@
               tacit←{                                     ⍝ nkd struct for 'rand'
                   this←⊃U.nkds ⎕NS'rand'                  ⍝ raw nkd for 'rand'
                   tnames←O.{0=⎕NC'tnames':0 ⋄ tnames}0    ⍝ tnames, default off
-                  ⊃tnames U.nabs(⊂this),U.nkds ⍬⍴3↓⎕RSI   ⍝ rand names wrt current ns
+                  ⊃tnames U.nabs(⊂this),U.nkds ⍬⍴⎕RSI↓⍨¯1+⎕SI⍳⊂'Filter' ⍝ rand names wrt current ns
               }
-              0 1≡rb:∆_ fmt ⍵             ⍝ boxing only:
+     
+              BoxOnly←{                   ⍝ boxing only:
+                  isa:LFmt fmt ⍵          ⍝ array: cropped.
+                  Split ⎕FMT fmt ⍵        ⍝ fn: remove trailing blanks
+              }
+              sim∨0 1≡rb:BoxOnly ⍵
+     
               long←O.R.style≡'long'       ⍝ unrestricted screen width.
               _ ⎕PW⊢←SD⌈32767×long        ⍝ ⎕pw temp set to screen width.
               CropOnly←{                  ⍝ cropping only:
-                  isa:susp Rows ⎕FMT ⍵    ⍝ array: cropped.
-                  ⊂⍵                      ⍝ fn: force ' ∇name'
+                  isa:susp Rows LFmt ⍵    ⍝ array: cropped.
+                  Split ⎕FMT ⍵            ⍝ fn: force ' ∇name'
               }
-              1 0≡rb:∆_ CropOnly ⍵
-              ∆_ susp Rows ⎕FMT fmt ⍵     ⍝ cropping if larger than window.
+              1 0≡rb:CropOnly ⍵
+     
+              susp Rows BoxOnly ⍵         ⍝ cropping if larger than window.
           }                               ⍝ :: ∇ *
-          DispFmt A
+          output←DispFmt A
+          :If trace
+              text←(2⊃⎕XSI),'[',(⍕4⊃event),']'
+              {
+                  ⍞←⍵,⎕UCS 13
+              }¨LFmt text output↓⍨-monad
+          :ElseIf ×≢output
+          :AndIf 1≢2⊃event
+              {
+                  ⎕←⍵
+              }¨output
+          :EndIf
+          :If 1≢2⊃event
+              ⎕EX'output'
+          :EndIf
       :Else
           :If ⎕EN<1000
               :Trap 1 ⍝ WS FULL
-                  ∆_ A                        ⍝ error
+                  :If trace
+                      text←(2⊃⎕XSI),'[',(⍕4⊃event),']'
+                      ⍞←text A↓⍨-monad ⋄ ⍞←⎕UCS 13
+                  :Else
+                      ⎕←A
+                  :EndIf
               :Else
                   ⎕SIGNAL 1
               :EndTrap
@@ -644,10 +699,10 @@
      
           box←{                                   ⍝ boxing of ⍵
               U B←⎕SE.Dyalog.(Utils Out.B)        ⍝ handy refs.
-              style←B.style                       ⍝ min mid max
+              style←sim⊃B.style B.view            ⍝ min mid max
               smooth←1⍝B.chars≡'regular'            ⍝ box-drawing chars?
               simp∧(⎕UCS 10)∊⍕⍵:⍺ ∇'\r?\n'⎕R'\r'⍠'Mode' 'D'⍤1⍕⍵ ⍝ normalise EOLs
-              simp∧~style≡'max':⎕FMT ⍵            ⍝ no boxing.
+              (isa∧style≡'non')∨simp∧~style≡'max':⍵   ⍝ no boxing.
               style≡'min':0 smooth 0 1 ⎕PP U.disp ⍵   ⍝ min: undecorated disp
               style≡'mid':⍺ smooth 0 1 ⎕PP U.disp ⍵   ⍝ mid: ⍺-decorated disp
               ⍺:smooth ⎕PP U.display ⍵            ⍝ max: ⍺: display
@@ -759,27 +814,27 @@
       Rows←{                               ⍝ Cropped to fit session window.
           R←⎕SE.Dyalog.Out.R               ⍝ ref for params.
           ⍺<R.fns≡'off':⍵                  ⍝ no cropping from fn output: done.
-          R.style≡'wrap':{0 0⍴''}{⎕←⍵}¨↓⍵  ⍝ ⎕PW-wrap each line.
-          rows cols←⍴⍵                     ⍝ raw output size.
+          R.style≡'wrap':⍵                 ⍝ ⎕PW-wrap each line.
+          rows←≢⍵ ⋄ cols←⌈/≢¨⍵             ⍝ raw output size.
           long←R.style≡'long'              ⍝ extend output beyond print-width
-          sr sc←SD⌈long×0,⎕PW⌈cols⌊32767   ⍝ screen_rows screen_cols
+          sd←SD                            ⍝ physical screen dimensions
+          sr sc←sd⌈long×0,⎕PW⌈cols⌊32767   ⍝ screen_rows screen_cols
           coldots←{                        ⍝ with column dots.
               cols≤sc:⍵                    ⍝ no column cropping: done.
-              1≠rows:(0 ¯1↓⍵),R.dots       ⍝ single column of dots on right
-              (0 ¯3↓⍵),1 3⍴R.dots          ⍝ single row: stuff ···
+              ((3⍴R.dots),⍨(dc-3)↑⊢)¨@(dc<≢¨)⍵ ⍝ 3 dots after too-long lines
           }
           dc←cols⌊sc                       ⍝ number of cols to display.
           fold←(R.fold≢'off')∧rows>sr-2    ⍝ must fold rows?
-          ~fold:coldots rows dc↑⍵          ⍝ no: row cropping only.
+          ~fold:coldots ⍵                  ⍝ no: row cropping only.
           tail←⍎R.fold                     ⍝ 0..9
           t←0⌈tail⌊sr-3                    ⍝ no of trailing rows.
           h←0⌈sr-3+t                       ⍝ input + brk + fold + prompt.
-          brk←sc⍴R.dots                    ⍝ fold marker: ··················
-          top←h sc↑⍵                       ⍝ retained upper part of output.
-          bot←(t sc×¯1 1)↑⍵                ⍝    ..    lower  ..     ..
-          mat←top⍪brk⍪bot                  ⍝ dots-broken matrix
-          dr _←⍴mat                        ⍝ number of rows to display.
-          coldots dr sc↑mat                ⍝ cropped.
+          brk←⊂(⌊/32767 cols,long↓⊢/sd)⍴R.dots ⍝ fold marker: ··················
+          top←h↑⍵                          ⍝ retained upper part of output.
+          bot←(-t)↑⍵                       ⍝    ..    lower  ..     ..
+          all←top,brk,bot                  ⍝ dots-broken matrix
+     
+          coldots⍣(~long)⊢all              ⍝ cropped.
       }
 
     ∇ rc←SD;handle;GetDlgItem;GetClientRect;GetDC;ReleaseDC;GetDeviceCapsdlg;r;c;v;h;_;scal;hdc  ⍝ session window size
@@ -803,6 +858,7 @@
       :Else
           rc←⎕SD-1 0  ⍝ Unix version?
       :EndTrap
+      rc-←0 1 ⍝ maybe we have DYALOG_LINEEDITOR_MODE=1
     ∇
 
     ∇ obj←Button;band ⍝ name of ]boxing button for ⎕W_
@@ -812,4 +868,4 @@
 
 :EndNamespace
 
- ⍝ outputspec  $Revision: 1607 $
+ ⍝ outputspec  $Revision: 1705 $

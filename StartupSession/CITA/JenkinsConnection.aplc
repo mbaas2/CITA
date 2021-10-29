@@ -292,6 +292,8 @@
         ⍝ curl ${CISERVER}/job/${JOBNAME}/${JID}/consoleText
      
           ⎕←'Ready to retrieve the log!'
+          ⎕←(⎕json ⍠'Compact'0)(⎕json r.Data)
+          ∘∘∘
           ns.log←get(⎕JSON r.Data).url,'consoleText'
           ⍝ h.Command←'get'
           ⍝ con←h.Run
