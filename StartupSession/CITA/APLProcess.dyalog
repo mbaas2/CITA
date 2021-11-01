@@ -19,7 +19,6 @@
     :Field Public RideInit←''
     :Field Public OutFile←''
     :Field Public WorkingDir←''
-    :field public psLogFile←''  ⍝ for _PS-calls
 
     endswith←{w←,⍵ ⋄ a←,⍺ ⋄ w≡(-(⍴a)⌊⍴w)↑a}
     tonum←{⊃⊃(//)⎕VFI ⍵}
@@ -441,8 +440,6 @@
     ⍝ Return 1 if the process is in the process table and is not a defunct
       r←0
       txt←UNIXGetShortCmd pid
-      ⎕←'UNIXIsRunning.txt="',txt,'"'
-      ⎕←'dr txt=',⍕⎕dr txt
       →(r←' '∨.≠txt)↓0
       r←~∨/'<defunct>'⍷txt
     ∇
@@ -466,7 +463,7 @@
           ∘∘∘
       :Else
       :trap 11
-          r←_PS cmd
+          r←⊃_PS cmd  ⍝ MB: ⊃ result to avoid errors later (in UNIXIsRunning due to nested result)
           :else 
           r←''
           :endtrap
@@ -475,18 +472,13 @@
 
     ∇ r←_PS cmd;ps;log
       ps←'ps ',⍨IsAIX/'/usr/sysv/bin/'    ⍝ Must use this ps on AIX
-      log←'/dev/null'
-      :if 0<≢psLogFile 
-       log←psLogFile 
-        :endif
+      ⍝log←'/dev/null'
+       log←'ps.log'  ⍝ MB: don't just send errors to null, catch them in a file
       :trap 0
-      ⎕←'_PS: '
-      r←1↓r1←⎕SH ⎕←ps,cmd,' 2>',log,';'
-      ⎕←'r="',r,'"'
+      ps←ps,cmd,' 2>',log,';'
+      r←1↓r1←⎕SH ps
       :else 
-          :if 0<≢psLogFile 
-          (⊂(⎕←⎕json⍠'Compact'0)⎕dmx)⎕nput psLogFile 2
-          :endif
+          (⊂(⎕json⍠'Compact'0)⎕dmx)⎕nput 'ps.log' 2
           ⎕DMX.Message ⎕signal 11
       :endtrap
     ∇
