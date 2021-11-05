@@ -134,12 +134,9 @@
               z←⍕GetCurrentProcessId
               output←(1+×≢OutFile)⊃'/dev/null'OutFile
               cmd,←'{ ',args,' ',Exe,' +s -q ',ws,' -c APLppid=',z,' </dev/null >',output,' 2>&1 & } ; echo $!'
-              ⎕←'cmd=',cmd
               pid←_SH cmd
-              ⎕←'pid=',pid
               Proc.Id←pid
               Proc.HasExited←HasExited
-	          ⎕←'HasExited=',Proc.HasExited
           :EndIf
           Proc.StartTime←⎕NEW Time ⎕TS
       :EndIf
@@ -439,8 +436,7 @@
     ∇ r←UNIXIsRunning pid;txt
     ⍝ Return 1 if the process is in the process table and is not a defunct
       r←0
-      txt←UNIXGetShortCmd pid
-      →(r←' '∨.≠txt)↓0
+      →(r←' '∨.≠txt←UNIXGetShortCmd pid)↓0
       r←~∨/'<defunct>'⍷txt
     ∇
 

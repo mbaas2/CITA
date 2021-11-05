@@ -22,42 +22,42 @@
       stages {
         stage ("Cleanup") {
           agent {
-            label "mac&&18.2&&cita_latest"
+            label "aix&&18.2&&cita_latest"
           }
           steps {
             script {
               cleanWs()
               catchError(buildResult: "UNSTABLE", stageResult: "FAILURE") {
-                def citaDEVT="/devt/"
-                def folder = "%xinD%"
-                echo "node=${env.NODE_NAME}"
-                if ("${env.NODE_NAME}"=="mac3") {
-                  citaDEVT = "/Volumes/devt"
-                  echo "folder pre-replace: $folder"
-                  folder= folder.replaceAll("(^|=)/devt/","\$1/Volumes/devt/") 
-                  // folder.replaceAll("(?<![^=])/devt/","/Volumes/devt/")
-                  echo "replaced in folder. new value is $folder"
-                }
-                path = "/Dyalog/Dyalog-18.2.app/Contents/Resources/Dyalog/mapl"
-                exists = fileExists(path)      
-                if (exists) {
-                  echo "PLATFORM=mac, path=${path}: File exists!"
-                } else {
-                  echo "PLATFORM=mac, path=${path}: File does not exist, trying another path"
-                  path = "/Applications/Dyalog-18.2.app/Contents/Resources/Dyalog/mapl"
-                  exists = fileExists(path)          
+                def NODE="${env.NODE_NAME}"
+                if (("mac") == NODE.take(3)) {
+                  def citaDEVT="/devt/"
+                  def folder = "%xinD%"
+                  echo "node=${env.NODE_NAME}"
+                  if ("$NODE"=="mac3") {
+                    citaDEVT = "/Volumes/devt"
+                    folder= folder.replaceAll("(^|=)/devt/","\$1/Volumes/devt/") 
+                  }
+                  path = "/Dyalog/Dyalog-18.2.app/Contents/Resources/Dyalog/mapl"
+                  exists = fileExists(path)      
                   if (exists) {
                     echo "PLATFORM=mac, path=${path}: File exists!"
                   } else {
-                    error "PLATFORM=mac, path=${path}: File does not exist, giving it up!"
-                  }
-                }                
-                echo "executing $path load=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.aplf configfile=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.dcfg FOLDER=$folder"              
-                sh "$path load=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.aplf configfile=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.dcfg FOLDER=$folder"              
-
-                // use this for AIX:
-                //sh "/opt/mdyalog/18.2/64/unicode/p8/mapl load=$dvt/apltools/CITA/CITA-Tests/cleanup.aplf configfile=/devt/apltools/CITA/CITA-Tests/cleanup.dcfg FOLDER=%xinD%"              
-                //sh "exit 0"  // end this step w/o problem-status, as it would avoid execution of next steps...
+                    echo "PLATFORM=mac, path=${path}: File does not exist, trying another path"
+                    path = "/Applications/Dyalog-18.2.app/Contents/Resources/Dyalog/mapl"
+                    exists = fileExists(path)          
+                    if (exists) {
+                      echo "PLATFORM=mac, path=${path}: File exists!"
+                    } else {
+                      error "PLATFORM=mac, path=${path}: File does not exist, giving it up!"
+                    }
+                  }                
+                  echo "executing $path load=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.aplf configfile=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.dcfg FOLDER=$folder"              
+                  sh "$path load=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.aplf configfile=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.dcfg FOLDER=$folder"              
+                } else {
+                  // use this for AIX:
+                  sh "/opt/mdyalog/18.2/64/unicode/p8/mapl load=/devt/apltools/CITA/CITA-Tests/cleanup.aplf configfile=/devt/apltools/CITA/CITA-Tests/cleanup.dcfg FOLDER=%xinD%"              
+                  sh "exit 0"  // end this step w/o problem-status, as it would avoid execution of next steps...
+                }
               }
            }
           }

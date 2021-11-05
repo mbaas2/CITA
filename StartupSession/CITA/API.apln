@@ -493,7 +493,9 @@
                           ⎕←'rcTest=',rc
                       :EndIf
                       :If step≡'test'
-     ⍝TODO:???
+                          nsTest←nsJob
+                          ⎕←'Assigned nsTest: '
+                          ⎕←⎕JSON nsTest
                       :EndIf
                       :Select rc
                       :CaseList 0,(((⊂step)∊'setup' 'teardown')/4),(((⊂step)∊'test' 'teardown')/1)
@@ -584,6 +586,7 @@
                           :AndIf 0<≢⊃0(⎕NINFO⍠1)item,'/*'   ⍝ and there are still files in it
                               del←del~⊂item                  ⍝ do not attempt to delete it
                           :Else
+                              ⎕←'⎕NDELETE ',item
                               ⎕NDELETE item
                           :EndIf
                       :EndIf
@@ -599,6 +602,19 @@
               resNS←Results⍎resNS
               resNS.Log←2⊃jobR
               resNS.rc←rcTest
+              ⎕←'resNS vorher:'
+              (⎕json⍠'Compact'0) resNS
+              resNS⎕ns'nsTest'
+              ⎕←'resNS danach:'
+              (⎕json⍠'Compact'0) resNS
+              ⎕←'⎕NC outfile',nsTest.⎕NC'outfile'
+              :If 'test'≡step
+              :AndIf 9=⎕NC'nsTest'
+                  ⎕←⎕JSON nsTest
+              :AndIf 2=nsTest.⎕NC'outfile'
+                  ⎕←(≢xinO)↓nsTest.outfile
+                  resNS.outfile←(≢xinO)↓nsJob.outfile
+              :EndIf
           :EndFor
      NextInt:
       :EndFor
@@ -630,18 +646,21 @@
 ⍝:: Test a remote GitHub-repository
 ⍝?: Test a remote GitHub-repository
 ⍝?:
-⍝?: ]TestRepo [URL]|[org repo]    -branch=<id>  -tag=<id>   -commit=<sha> -pull∊0123456789 [-keep[∊RCcr]] -keeponfailure[∊RCcr] [-int[=180U64...]
-⍝Parse:        1-2L               -branch=      -tag=       -commit=      -pull∊0123456789  -keep[∊]RCcr  -keeponfailure[∊]RCcr  -int[∊]"0123456789UCuc_/,.~-all"   -jenkins -off
+⍝?: ]TestRepo [URL]|[org repo]    -branch=<id>  -tag=<id>   -commit=<sha> -pull∊0123456789 [-keep[∊RCcr]] -keeponfailure[∊RCcr] [-int[=180U64...] -jenkins -off -nomail
+⍝Parse:        1-2L               -branch=      -tag=       -commit=      -pull∊0123456789  -keep[∊]RCcr  -keeponfailure[∊]RCcr  -int[∊]"0123456789UCuc_/,.~-all"   -jenkins -off -nomail
 ⍝??: Test a remote repository
 ⍝??:
 ⍝?: ]TestRepo [URL]|[[org] repo]    -branch=<id> | -tag=<id> | -commit=<id> | -pull=<no of PR>
 ⍝??: <URL>                URL of a repo (can also be a URL of a commit or tag or branch or PR as taken from your browser)
 ⍝??: <org>                name of an organization (i.e. "dyalog" - which is also the default)
 ⍝??: <repo>               name of a repo (i.e. "CITA")
-⍝??: Switch -jenkins indicates that we are supposed to create the Jenkins jobs that execute the tests on platforms & interpreters
+⍝??: -jenkins indicates that we are supposed to create the Jenkins jobs that execute the tests on platforms & interpreters
+⍝??: -off     exit APL after running test
+⍝??; -nomail  do not send status mail (as configured in CITA.json)
 ⍝??: as configured in CITA.json[5] in the repository.
      
       _InitUCMDs  ⍝ yeah, this is ambigous - but the API-fns rely on ##.Home being set up. May find a better way to name or address this...
+      ai3←⎕AI[3]
       ns←⎕NS''
       ns.Log←⍬
       ns.rc←¯1
@@ -661,13 +680,13 @@
           :If ~##.GitHub.HasCITA fl
               ns.rc←2
               ns.Log←⊂'Repository ',fl,' does not contain CITA.json[5]'
-              →0
+              →Exit
           :EndIf
           fl←'/'(≠⊆⊢)(7+'s'=5⊃fl)↓fl   ⍝ elements of the URL
           :If 'github.com'≢⎕C 1⊃fl
               ns.rc←1
               ns.Log←⊂'Domain ("',arg._1,'") of URL did not match "github.com"'
-              →0
+              →Exit
           :EndIf
           fl←1↓fl  ⍝ remove domain
           arg.(_1 _2)←fl[1 2]
@@ -686,7 +705,7 @@
                   :Else
                       ns.rc←1
                       ns.Log←⊂'Could not identify PR'
-                      →0
+                      →Exit
                   :EndIf
               :ElseIf 5=≢fl
               :AndIf 'tag'≡4⊃fl
@@ -699,7 +718,7 @@
           :AndIf (~⎕NEXISTS fl,'CITA.json')∧~⎕NEXISTS fl,'CITA.json5'  ⍝ or to a folder that contains such a file?
               ns.rc←2
               ns.Log←⊂'Folder ',fl,' does not contain CITA.json[5]'
-              →0
+              →Exit
           :EndIf
           hasCITA←1
           ⎕←'arg=',arg.(_1,'|',_2)
@@ -711,15 +730,17 @@
           :If arg.pull≢0
               url←'https://api.github.com/repos/',arg._1,'/',arg._2,'/pulls/',⍕arg.pull
               hasCITA←##.GitHub.HasCITA url
+          :Else
+              url←'https://api.github.com/repos/',arg._1,'/',arg._2
           :EndIf
           :If ~hasCITA
           :AndIf ~##.GitHub.HasCITA arg.(_1 _2)
               ns.rc←2
               ns.Log←⊂'Repository ',(∊arg.(_1'/',_2)),' does not contain CITA.json[5]'
-              →0
+              →Exit
           :EndIf
       :EndIf
-     
+⍝ TODO: get CITA from web (or locally, that needs to be added above 721) and is used below (search SendMail)
      
 ⍝ create tempdir for stuff downloaded from repo
       :If arg.jenkins
@@ -752,7 +773,7 @@
           :AndIf '/devt/'≢6↑xinO
               ns.rc←4713 ⍝ TODO: return code!
               ns.Log←⊂'xinO on unexpected location!'
-              →0
+              →Exit
           :EndIf
           xinD←'/devt',2↓1⊃⎕NPARTS ¯1↓xinO
           ⎕←'xinD=',xinD
@@ -764,7 +785,7 @@
               :If 0≠⊃res←(xinO,'CITA/')##.GitHub.GetFilesFromSHA'Dyalog' 'CITA'
                   ns.rc←4712 ⍝ TODO: proper error etc.
                   ns.Log←⊂'Download of CITA repo failed with',2⊃res
-                  →0
+                  →Exit
               :EndIf
      
 ⍝ get the last version of DyalogBuild.dyalog to ensure that we interpreters will use the latest version of ]DTest
@@ -772,7 +793,7 @@
               :If 0≠⊃res←(xinO,'CITA/SALT/spice/DyalogBuild.dyalog')##.GitHub.RetrieveFile'https://raw.githubusercontent.com/Dyalog/DBuildTest/master/DyalogBuild.dyalog'
                   ns.rc←4712 ⍝ TODO: proper error etc.
                   ns.Log←⊂'Download of DBuildTest repo failed with',2⊃res
-                  →0
+                  →Exit
               :EndIf
               rc1←(xinO,repo)##.GitHub.GetFilesFromSHA org repo ⍝sha
           :Else
@@ -786,14 +807,14 @@
           :If 0≠1⊃rc1
               ns.rc←4711  ⍝ TODO: better error
               ns.Log←⊂'Error retrieving repo: ',∊1↓rc1
-              →0
+              →Exit
           :EndIf
 ⍝          rd←1⊃1(⎕NINFO⍠'Wildcard' 1)xinO,'*.*'
           (rc1 cfg log1)←_GetTestSpecs cita_file←∊(⊂xinO,repo,'/'){⎕NEXISTS r←⍺,⍵:r ⋄ ⍬}¨'CITA.json' 'CITA.json5'
           :If rc1≠0
               ns.Log←⊂'Error retrieving test specs: ',log1
               ns.rc←4711   ⍝ TODO: assign proper error no and document it
-              →0
+              →Exit
           :EndIf
           dyalogversions←(⎕JSON⍠'Dialect' 'JSON5')1⊃⎕NGET home,'dyalogversions.json5'
           aplv←dyalogversions.versions
@@ -801,7 +822,7 @@
           :If 0=≢fapl
               ns.Log←'No APLVersion found to test this repository against!'
               ns.rc←4711
-              →0
+              →Exit
           :EndIf
           info'fapl=',fapl
           FixPath←{⍺←0 ⋄ ('u:/'⎕R((⍺+1)⊃'/devt/' '[citaDEVT]' '${citaDEVT}')⍠('Regex' 0)('IC' 1))⍵}   ⍝ translate U: to /devt/
@@ -909,7 +930,7 @@
               info'Wrote job to ',file
               jenk←⎕NEW ##.JenkinsConnection
               jenk.(Debug Cleanup)←1 0
-              jenk.LOCKFILE←{⍵(FixPath {('/'@('\'∘=))⍵}⍵)}wd,jobName,'.lock-jenkins'
+              jenk.LOCKFILE←{⍵(FixPath{('/'@('\'∘=))⍵}⍵)}wd,jobName,'.lock-jenkins'
             ⍝   lb←⊃⌽'/'(≠⊆⊢)1⊃⎕NPARTS ¯1↓xinO
               info'Launching job'
               jns←file jenk.RunJob jobName
@@ -929,22 +950,23 @@
               vt←((≢tests)/∪versions),[0.5](×/≢¨tests(∪versions))⍴tests
               resTab←((⊂''),(⊂''),∪platforms),vt⍪((≢∪platforms),¯1↑⍴vt)⍴' '
               rc∆←0
-              html←'<head>'
-              html,←'<style>'
-              html,←'.ok {background-color: lightgreen;}'
-              html,←'.fail {background-color: lightsalmon;}'
-              html,←'table {cellspacing: 0; border-collapse: collapse; border: 2px solid rgb(200,200,200);}'
-              html,←'.legend {background-color: lightyellow; border:  2px black solid;display: inline-block;padding: 10px;}'
-              html,←'td {text-align: center; border: 1px solid rgb(190,190,190);padding: 10px 20px;}'
-              html,←'</style>'
-              html,←'<head>'
-              html,←'</head>'
-              html,←'<body>'
-              html,←'<h1>CITA-Log of test ',xinO,'</h1>',NL
-              html,←{'<p>This is instance <a href="',⍵,'">',(⍕jns.Data.number),'</a> of job <a href="',(1⊃⎕NPARTS ¯1↓⍵),'">',(2⊃⎕NPARTS ¯1↓1⊃⎕NPARTS ¯1↓⍵),'</a></p>'}jns.Data.url
-              html,←'<br/>'
-              html,←_AddTestStatusSVG 2 1↓resTab
-              html,←'<br/><br/>'
+              tit←'CITA-Log of test ',xinO,' (%lbl%)'
+              html←'<html>',NL
+              html,←' <head>',NL
+              html,←'  <meta charset="utf-8">',NL
+              html,←'  <style>',NL
+              html,←'   .ok {background-color: lightgreen;}',NL
+              html,←'   .fail {background-color: lightsalmon;}',NL
+              html,←'   table {border-spacing: 0; border-collapse: collapse; border: 2px solid rgb(200,200,200);}',NL
+              html,←'   .legend {background-color: lightyellow; border:  2px black solid;display: inline-block;padding: 10px;}',NL
+              html,←'   td {text-align: center; border: 1px solid rgb(190,190,190);padding: 10px 20px;}',NL
+              html,←'  </style>',NL
+              html,←'  <title>',tit,'</title>',NL
+              html,←' </head>',NL
+              html,←' <body>',NL
+              html,←'  <h1>',tit,'</h1>',NL
+              html,←{'  <p>This is instance <a href="',⍵,'">',(⍕jns.Data.number),'</a> of job <a href="',(1⊃⎕NPARTS ¯1↓⍵),'">',(2⊃⎕NPARTS ¯1↓1⊃⎕NPARTS ¯1↓⍵),'</a></p>',NL}jns.Data.url
+              html,←'  <br/>',NL
               ht←resTab
               ∘∘∘
               :For i :In ⍳≢LOGFILES
@@ -955,7 +977,12 @@
                       :For t :In s.⎕NL ¯9
                           c←(↓[1]vt)⍳⊂versions[i],⊂2↓t
                           ⎕←resTab[2+r;1+c]←⊂ResultSymbols[1+(s⍎t).rc;1]
-                          ht[2+r;1+c]←LOGFILES[i]
+                          :Trap 6
+                              ht[2+r;1+c]←⊂(s⍎t).outfile
+                          :Else
+                              ∘∘∘
+                              ht[2+r;1+c]←LOGFILES[i]
+                          :EndTrap
                       :EndFor
                   :Else
                       c←(↓[1]vt)⍳⊂versions[i],(1↑tests)[1]  ⍝ assume first test...
@@ -970,29 +997,50 @@
               ns.resTab←resTab
               ht←resTab{
                   z←(⍺≢'n')∧(0<≢⍵)∧1=≢⍺
-                  c←(z/'<a href="',⍵,'">'),⍺,z/'</a>'
-                  '<td',((1=≢⍺)/' class="',((1+⍺≢ResultSymbols[1;1])⊃'ok' 'fail'),'"'),'>',c,'</td>'
+                  c←(z/'    <a href="',⍵,'">'),⍺,z/'</a>'
+                  '<td',((1=≢⍺)/' class="',((1+⍺≢ResultSymbols[1;1])⊃'ok' 'fail'),'"'),'>',c,'</td>',NL
               }¨ht
-              ht[1;1]←⊂'<td rowspan=2></td>'
+              ht[1;1]←⊂'<td rowspan=2></td>',NL
               ht[2;1]←⊂''
-              ht←∊(⊂'<tr>'),ht,⊂'</tr>',NL
-              ht←'<table cellspacing=0 cellpadding=2px>',ht,NL
-              ht,←'</table>',NL
+              ht←∊(⊂'   <tr>',NL,'    '),ht,⊂'   </tr>',NL
+              ht←'  <table cellspacing="0" cellpadding="2">',NL,ht,NL
+              ht,←'  </table>'
+              (svg lbl)←_AddTestStatusSVG 2 1↓resTab
+              html←('%lbl%'⎕r lbl)html
+              html,←'  ',svg,NL
+              html,←'  <br/><br/>',NL
               html←html,ht
-              html,←'<br /><br /><p class="legend">',({(1⊃⍵),'<br />',¯2↓∊{'<b>',⍵[1],'</b>',1↓⍵,', '}¨{(∨\⍵≠' ')/⍵}¨{','(≠⊆⊢)∊⍵}1↓⍵}1↓_AddLegend 1 0↓resTab),'.<p>',NL
-              html,←'</body>',NL
+              html,←'  <br /><br /><p class="legend">',({(1⊃⍵),'<br />',¯2↓∊{'<b>',⍵[1],'</b>',1↓⍵,', '}¨{(∨\⍵≠' ')/⍵}¨{','(≠⊆⊢)∊⍵}1↓⍵}1↓_AddLegend 1 0↓resTab),'.<p>',NL
+              html,←'  <br>RunTime: %ms',NL
+              html,←' </body>',NL
               html←html,'</html>',NL
               (⊂html)⎕NPUT xinO,'CITA.log.html'
      
               ns.Log,←'' 'Results:',↓⍕resTab
               ns.Log,←_AddLegend 1 0↓resTab
+              ns.Summary←lbl
               ns.rawTab←2 1↓resTab
               ns.rc←0+∨/(1↓ResultSymbols[;1])∊ns.rawTab
+              :If ~arg.nomail
+              :AndIf 0  ⍝ TODO: implement mailing of log
+                  ∘∘∘
+              ⍝ TODO: SendMail (check if repo is configured to send logs by mail)
+              ⍝ subject: CITA TestRepo ...: lbl
+                  clientArgs←⍝ Server Port From Password UserId
+                  clientArgs←⊂+2 ⎕NQ'.' 'GetEnvironment' 'SMTP_SERVER'
+                  clientArgs,←⊂+2 ⎕NQ'.' 'GetEnvironment' 'SMTP_PORT'
+                  clientArgs,←⊂+2 ⎕NQ'.' 'GetEnvironment' 'SMTP_SERVER'
+                  clientArgs,←⊂+2 ⎕NQ'.' 'GetEnvironment' 'SMTP_FROM_ADDRESS'
+                  clientArgs,←⊂+2 ⎕NQ'.' 'GetEnvironment' 'SMTP_PASSWORD'
+                  clientArgs,←⊂+2 ⎕NQ'.' 'GetEnvironment' 'SMTP_USER'
+                  msgArgs,←⊂+2 ⎕NQ'.' 'GetEnvironment' ''  ⍝To Subj Body
+                  (rc msg client log)←clientArgs _SendMail msgArgs
+              :EndIf
           :Else
               ns.Log←'Could not find required "',file,'" to build Jenkins job'
               ns.rc←911
           :EndIf
-          →0
+          →Exit
       :EndIf   ⍝ -jenkins
      
       xinO←(739⌶0),,('</CITA_Test/>,ZI4,ZI2,ZI2,<_>,ZI2,ZI2,ZI2,</repo/',(arg._1,'-',arg._2),'/>')⎕FMT 1 6⍴⎕TS
@@ -1020,7 +1068,7 @@
                   ns.rc←1
                   ns.Log←'Error retrieving PR from ',url
                   ns.Log,←⍕R2
-                  →0
+                  →Exit
               :EndIf
           :ElseIf 0 0≡arg.(branch commit)
   ⍝ get id of last commit to the repo
@@ -1059,7 +1107,18 @@
           (⎕JSON⍠'HighRank' 'Split')ns
       :EndIf
      Exit:
+      ns.Runtime←⎕AI[3]-ai3
+      :If ⎕NEXISTS xinO,'CITA.log.html'
+     ⍝ it might be unneccessarily accurate to really compute the timing here (and then inject it into the file), but hey...
+          r←1⊃⎕NGET xinO,'CITA.log.html'
+          r←('%ms'⎕R((⍕ns.Runtime),'ms')⍠'Regex' 0)r
+          (⊂r)⎕NPUT (xinO,'CITA.log.html')1
+      :EndIf
+      ⎕←'ns @ end of TestRepo'
       (⎕JSON⍠'HighRank' 'Split')ns
+      :If arg.off
+          ⎕OFF 42   ⍝ 42 indicates "regular exit"
+      :EndIf
     ∇
 
     :section tools
@@ -1096,8 +1155,7 @@
       StatusFiles←(⊂xin,'CITA.',⎕C step),¨'.err' '.fail' '.ok'
       1 ⎕NDELETE¨StatusFiles  ⍝ make sure there are no old statusfiles around...
      
-      ⍝...and explicitely set a log_file for each step (to be stored in workdir-folder):
-      cfg,←' LOG_FILE="',(log_file←xin,'log_',step,'.dlf'),'" CITA_Log="',(∊2↑⎕NPARTS 1⊃StatusFiles),'"'
+      cfg,←' CITA_Log="',(∊2↑⎕NPARTS 1⊃StatusFiles),'"'
       cfg,←' APLCORENAME="',(aplcore←xin,'APLCORE_',step,'.'),'"'
       :If 0<≢t←2 ⎕NQ'.' 'GetEnvironment' 'COMMANDFOLDER'
           ⍝ if CMDFOLDER was set when we were called...
@@ -1112,15 +1170,17 @@
       Fullname←∊1 ⎕NPARTS xin,file
       :Select ext←⎕C 3⊃⎕NPARTS file
       :CaseList '.aplf' '.aplc' '.dyalog'
-          TestLog←xin,'CITA_',(2⊃⎕NPARTS(-(ext≡''))↓Fullname),'.log'
-          cmd←'CITATest="',Fullname,'" testlog="',TestLog,'"'
+        ⍝   TestLog←xin,'CITA_',(2⊃⎕NPARTS(-(ext≡''))↓Fullname),'.log'
+        ⍝   cmd←'CITATest="',Fullname,'" testlog="',TestLog,'"'
+          cmd←'CITATest="',Fullname,'"'
           dws←∊1 ⎕NPARTS ##.Home,'/client/RunCITA'
       :Case '.dws' ⋄ dws←Fullname
       :CaseList '' '.dyalogtest'
           R←4('.dyalogtest or folder-argument only valid for "test", not "',step,'"') ⋄ →(step≢'test')/EndJob
           :If ext≡'' ⋄ :AndIf 1≠1 ⎕NINFO Fullname ⋄ R←4 ⋄ →EndJob ⋄ :EndIf  ⍝ no extension, but does not refer to a folder
-          TestLog←xin,'CITA_',(2⊃⎕NPARTS(-(ext≡''))↓Fullname),'.log'
-          cmd←'CITATest="',Fullname,'"  testlog="',TestLog,'" ',specs{6::'' ⋄ 'dtestmods="',(⍺⍎⍵),'"'}'dtestmodifiers'
+        ⍝   TestLog←xin,'CITA_',(2⊃⎕NPARTS(-(ext≡''))↓Fullname),'.log'
+        ⍝   cmd←'CITATest="',Fullname,'"  testlog="',TestLog,'" ',specs{6::'' ⋄ 'dtestmods="',(⍺⍎⍵),'"'}'dtestmodifiers'
+          cmd←'CITATest="',Fullname,'" ',specs{6::'' ⋄ 'dtestmods="',(⍺⍎⍵),'"'}'dtestmodifiers'
           dws←'"',∊1 ⎕NPARTS ##.Home,'/client/RunCITA"'
           ⎕←'dws=',dws
           isDTest←1
@@ -1130,6 +1190,8 @@
       :If ⎕SE.SALTUtils.DEBUG
         ⍝   cmd,←' UDEBUG=on'
       :EndIf
+      outfile←xin,'output.txt'
+      ns.outfile←outfile
       cmd,←' ',cfg
       exited←¯1
     ⍝  ⎕trap←0'S'⋄600⌶1
@@ -1147,7 +1209,6 @@
               cmd,←' WFR=1' ⍝ WFR=WaitForRide → if RunCITA sees this, it will wait until GhostRider has connected
           :EndIf
           port←55355
-          outfile←xin,'output.txt'
           ⎕←(1⊃⎕SI),'[',(⍕1⊃⎕LC),'] Creating new APLProcess. dws=',dws,', cmd=',cmd,', outfile=',outfile,' | xin=',xin,', RIDE_INIT=serve:127.0.0.1:',(⍕port),' | outfile = ',outfile
           proc←⎕NEW ##.APLProcess(dws cmd(interpreter{0::0 ⋄ ⍺⍎⍵}'exe')('serve:127.0.0.1:',⍕port)outfile xin) ⋄ ai3←⎕AI[3]
           proc.psLogFile←xin,'/pslog.txt'
@@ -1210,14 +1271,13 @@
       :EndSelect
      
     ⍝   ⎕DL 2
-      ⎕←'isDTest=',(⍕isDTest),', TestLog=',TestLog
-      ⎕←'Testlog exists: ',⎕NEXISTS TestLog
+      ⎕←'isDTest=',(⍕isDTest)
       ⎕←'fpat=',(∊2↑⎕NPARTS 1⊃StatusFiles),'.*'
-      ⎕←'ninfo Testlog=',⊃0(⎕NINFO⍠'Wildcard' 1)(∊2↑⎕NPARTS TestLog),'.*'
       ⎕←'ninfo=',⊃0(⎕NINFO⍠'Wildcard' 1)(∊2↑⎕NPARTS 1⊃StatusFiles),'.*'
       :If ⎕NEXISTS aplcore ⋄ ns.log←'Test led to an APLCORE: ',aplcore ⋄ ns.R←6 ⋄ →EndJob ⋄ :EndIf
       :If isDTest
-          :If ⎕NEXISTS TestLog
+          :If 0
+          :andif ⎕NEXISTS TestLog
               lg←1⊃⎕NGET TestLog
               :If ∨/'WS FULL'⍷lg
                   ''⎕NPUT(ns.logFile←(∊2↑⎕NPARTS 1⊃StatusFiles),'.wsfull')1
@@ -1293,7 +1353,10 @@
                   rspec,←spec
               :EndIf
           :EndFor
-          :If rspec≡⍬ ⋄ rc←705 ⋄ →0 ⋄ :EndIf
+          :If rspec≡⍬
+              rc←705
+              →Exit
+          :EndIf
       :Else
           rc←701 ⋄ log←⊂'Error reading "',fl,'":',NL,⎕JSON ⎕DMX
       :EndTrap
@@ -1357,9 +1420,9 @@
     _findLine←{{(+/∧\⍵=' ')↓⍵}¨l↓¨(((l←2+≢⍵)↑¨⍺)≡¨⊂'⍝',⍵,':')/⍺}
 
     ∇ Log←_AddLegend resTab;legend;summary
-      Log←'' 'Explanation of status indicator(s):'
       legend←''
       summary←∊1 1↓resTab
+      Log←''('Explanation of status indicator',((1<≢∪summary)/'s'),':')
       :For symb exp :In ↓ResultSymbols
           :If symb∊summary
               legend,←symb,'= ',exp,', '
@@ -1368,7 +1431,7 @@
       Log,←⊂¯2↓legend
     ∇
 
-    ∇ svg←_AddTestStatusSVG res;url;s
+    ∇ (svg lbl)←_AddTestStatusSVG res;url;s;lbl
       ⍝ get SVG from shields.io for easy status indication
       url←'https://img.shields.io/badge/status-'
       s←⍬ 0
@@ -1377,16 +1440,21 @@
       url,←(s[1]>0)/(⍕1⊃s),'%20test',((1<s[1])/'s'),'%20ok',(s[2]>0)/',%20'
       url,←(s[2]>0)/(⍕2⊃s),(((0=s[1])∧0<s[2])/'%20test',(1<s[2])/'s'),'%20failed'
       url,←'-',{∧/⍵:'orange' ⋄ ⍵[1]:'green' ⋄ 'red'}s>0
+      ⎕←'url=',url
+      ⎕←'s=',s
+      ∘∘∘
+     
       ⍝ add the dyalog-logo:  (using a hack as seen on https://github.com/badges/shields/issues/3638#issuecomment-508241508 )
       url,←'?logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MTYgNTEyIj48cGF0aCBkPSJNMCAzMnYxMTkuMmg2NFY5NmgxMDcuMkMyODQuNiA5NiAzNTIgMTc2LjIgMzUyIDI1NS45IDM1MiAzMzIgMjkzLjQgNDE2IDE3MS4yIDQxNkgwdjY0aDE3MS4yQzMzMS45IDQ4MCA0MTYgMzY3LjMgNDE2IDI1NS45YzAtNTguNy0yMi4xLTExMy40LTYyLjMtMTU0LjNDMzA4LjkgNTYgMjQ1LjcgMzIgMTcxLjIgMzJIMHoiLz48L3N2Zz4='
       res←##.HttpCommand.Get url
       :If res.rc=0
           svg←res.Data
+          lbl←('aria-label=".*:\h(.*)"'⎕S'\1'⍠'Greedy' 0)svg
       :ElseIf DEBUG
           ⎕←'Unexpected res!'
           ⎕←'res ⍝ examine it'
       :Else
-          svg←''
+          svg←lbl←''
       :EndIf
     ∇
 
@@ -1426,6 +1494,7 @@
           f←1⊃folders
           :If ~∨/∊(⊂f)⍷¨files   ⍝ if there are no files in that path
               :If ⎕NEXISTS f
+                  ⎕←'⎕NDELETE ',f
                   1 ⎕NDELETE f
               :AndIf f≥⍥{+/⍵='/'}path  ⍝ if we're below path...
                   folders,←⊂1⊃⎕NPARTS f  ⍝ add parent folder to candidate list
@@ -1449,6 +1518,83 @@
           ⎕MKDIR docFld
       :EndIf
       file←∊1 ⎕NPARTS docFld,'/interpreters.json5'
+    ∇
+
+⍝ this is  from the SMTP-repository:
+
+    ∇ (rc msg client log)←clientArgs _SendMail messageArgs;⎕ML;⎕IO;params;msgParams;log
+ ⍝ Simple cover to send SMTP mail
+ ⍝ Requires: SMTP class
+     
+ ⍝ Version 1.1 2021-09-09
+     
+ ⍝ rc     - return code; 0=no error, 1=error from the SMTP server, anything else=other error
+ ⍝ msg    - descriptive message
+ ⍝ client - reference to instance of SMTP (only returned when clientArgs is the server definition)
+ ⍝ log    - log of server responses
+     
+     
+ ⍝ clientArgs is one of:
+ ⍝ A client definition in one of the following formats:
+ ⍝   ∘ a vector of Server Port From [Password [Userid [Secure]]]
+ ⍝   ∘ a namespace containing required named elements: Server Port From
+ ⍝     and optionally Password Userid Secure plus any other parameters applicable to the SMTP class
+ ⍝   where
+ ⍝     Server   - address of the SMTP server
+ ⍝     Port     - port for the SMTP server
+ ⍝     From     - "from" email address; if Userid is not specified From is also used for authentication if necessary
+ ⍝     Password - password to access the SMTP server
+ ⍝     Userid   - userid for authentication; not needed if it's the same as From
+ ⍝     Secure   - Boolean indicating whether to use SSL/TLS; if not specified Secure will be inferred from the Port
+ ⍝ Or
+ ⍝   ∘ an instance of the SMTP class created by SendMail
+     
+ ⍝ messageArgs is one of:
+ ⍝ ∘ a vector of To Subj Body
+ ⍝ ∘ a namespace containing required named elements: To Subj Body
+ ⍝     and optionally any other parameters applicable to the SMTP.Message class
+     
+ ⍝ Once the SMTP client instance has been created, it can be passed as the left argument
+ ⍝ in subsequent calls to Sendmail
+     
+ ⍝ Examples:
+ ⍝ (clt←⎕NS'').(Server Port From Password)←'mail.abc.com' 465 'me@abc.com' 'secret'
+ ⍝ Client←3⊃clt SendMail '' ⍝ create the client instance
+ ⍝ (msg←⎕NS'').(To Subj Body)←'you@xyz.com' 'Hello' 'Hi there!'
+ ⍝ Client SendMail msg      ⍝ client instance is the left argument here
+ ⍝
+ ⍝ The client instance can be created and message sent in a single call:
+ ⍝ Client←3⊃clt SendMail msg
+     
+      ⎕IO←⎕ML←1
+     
+      (rc msg client log)←¯1 'Nothing done' '' ''
+      params←0
+      :Select ⎕NC⊂'clientArgs'
+      :Case 2.1 ⋄ params←⎕NS'' ⋄ params.(Server Port From Password Userid Secure)←''⍬'' '' '' ¯1{(≢⍺)↑⍵,⍺↓⍨≢⍵},⊆clientArgs
+      :Case 9.1 ⋄ params←clientArgs
+      :Case 9.2 ⋄ client←clientArgs
+      :Case 0 ⍝ not defined? do nothing
+      :Else ⋄ →Exit⊣(rc msg)←¯1 'Invalid clientArgs' ⍝ paranoia
+      :EndSelect
+     
+      :If params≢0
+          :Trap 0 ⋄ client←⎕NEW SMTP params
+          :Else ⋄ →Exit⊣(rc msg)←⎕DMX.(EN(EM,' while creating client'))
+          :EndTrap
+          (rc msg)←0 'SMTPClient created'
+      :EndIf
+     
+      :If ~0∊⍴messageArgs
+          :If 0∊⍴client ⋄ →Exit⊣(rc msg)←¯1 'No SMTPClient defined' ⋄ :EndIf
+          :Select ⎕NC⊂'messageArgs'
+          :Case 2.1 ⋄ msgParams←⎕NS'' ⋄ msgParams.(To Subj Body)←'' '' ''{(≢⍺)↑⍵,⍺↓⍨≢⍵},⊆messageArgs
+          :Case 9.1 ⋄ msgParams←messageArgs
+          :Else ⋄ →Exit⊣(rc msg)←¯1 'Invalid messageArgs' ⍝ paranoia
+          :EndSelect
+          (rc msg log)←client.Send msgParams
+      :EndIf
+     Exit:
     ∇
 
     :endsection

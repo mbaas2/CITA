@@ -9,7 +9,7 @@
     platforms: [
         "aix",
         // "mac",
-        // "pi",
+         "pi",
         //"win",
         //"linux",
         
