@@ -8,21 +8,20 @@ stage ("pi_%CITA_VERSION%_%VERSION%") {
           path = "/opt/mdyalog/%VERSION%/${BITS}/${EDITION}/mapl"
           E = EDITION.take(1)
           exists = fileExists(path)          
-          if (exists) {
-            echo "PLATFORM=pi, path=${path}: File exists!"
-          } else {
+          if (!exists) {
             error "Found no interpreter for ${env.NODE_NAME}. Labels: ${env.NODE_LABELS}"
           }
           testPath="%xinO%pi_%VERSION%_${E}${BITS}/"
-          cmdline = "%CMDLINE% citaDEVT=${citaDEVT} CONFIGFILE=${testPath}cita.dcfg CITA_Log=${testPath}CITA.log LOG_FILE=${testPath}CITA_Session.dlf"
-          echo "Launching $path $cmdline "
+          cmdline = "%CMDLINE% citaDEVT=${citaDEVT} USERCONFIGFILE=${testPath}cita.dcfg CITA_Log=${testPath}CITA.log"
+          cmdline = "$cmdline > ${testPath}ExecuteLocalTest.log"
+
           rjc = sh(script: "$path $cmdline" , returnStatus: true)
           exists = fileExists("${testPath}CITA.log.ok") 
           if (exists) {
             echo "Test succeeded"
             rc = 0
           } else {
-            echo "Test did not end with status file ${testPath}CITA_LOG.ok"
+            echo "Test did not end with status file ${testPath}ExecuteLocalTest.log"
             rc = 1
           }
         } catch (err)

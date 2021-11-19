@@ -21,9 +21,8 @@ stage ("aix_%CITA_VERSION%_%VERSION%") {
             }
             E = EDITION.take(1)
             testPath="%xinO%aix_%VERSION%_${P}_${E}${BITS}/"
-            cmdline = "%CMDLINE% citaDEVT=${citaDEVT} CONFIGFILE=${testPath}cita.dcfg CITA_Log=${testPath}CITA.log LOG_FILE=${testPath}CITA_Session.dlf"
-            echo "Launching $cmdlinePre $path $cmdline "
-            // sh "$path $cmdline" 
+            cmdline = "%CMDLINE% citaDEVT=${citaDEVT} USERCONFIGFILE=${testPath}cita.dcfg CITA_Log=${testPath}CITA.log"
+            cmdline = "$cmdline > ${testPath}ExecuteLocalTest.log"
             rcj =  sh(script: "$cmdlinePre $path $cmdline" , returnStatus: true)
             echo "returncode=$rcj"      
             exists = fileExists("${testPath}CITA.log.ok")     

@@ -6,7 +6,10 @@
 
     ∇ r←List
       Init
+      r←⍬
+      :if 9=⎕se.⎕nc'CITA'
       r←⎕SE.CITA.UCMD.List
+      :endif
     ∇
 
     ∇ r←level Help cmd

@@ -39,22 +39,16 @@
                   }
                   path = "/Dyalog/Dyalog-18.2.app/Contents/Resources/Dyalog/mapl"
                   exists = fileExists(path)      
-                  if (exists) {
-                    echo "PLATFORM=mac, path=${path}: File exists!"
-                  } else {
+                  if (!exists) {
                     echo "PLATFORM=mac, path=${path}: File does not exist, trying another path"
                     path = "/Applications/Dyalog-18.2.app/Contents/Resources/Dyalog/mapl"
                     exists = fileExists(path)          
-                    if (exists) {
-                      echo "PLATFORM=mac, path=${path}: File exists!"
-                    } else {
+                    if (!exists) {
                       error "PLATFORM=mac, path=${path}: File does not exist, giving it up!"
                     }
                   }                
-                  echo "executing $path load=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.aplf configfile=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.dcfg FOLDER=$folder"              
                   sh "$path load=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.aplf configfile=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.dcfg FOLDER=$folder"              
                 } else {
-                  // use this for AIX:
                   sh "/opt/mdyalog/18.2/64/unicode/p8/mapl load=/devt/apltools/CITA/CITA-Tests/cleanup.aplf configfile=/devt/apltools/CITA/CITA-Tests/cleanup.dcfg FOLDER=%xinD%"              
                   sh "exit 0"  // end this step w/o problem-status, as it would avoid execution of next steps...
                 }
@@ -69,7 +63,7 @@
         }
         stage ("Unlock") {
           agent {
-            label "pi&&18.2&&cita_latest"  // do not run this on AIX
+            label "pi&&18.2&&cita_latest"  
           }
           steps {
             script {

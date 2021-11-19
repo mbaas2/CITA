@@ -285,7 +285,8 @@
           :Repeat
               r←h.Run
           :Until (⎕json r.Data).building≢⊂'true'   ⍝ end if no ⎕JSON result
-          :OrIf r.rc≠0
+          :OrIf ~r.rc∊0 1119  
+          ⍝ 1119: ERR_CLOSED: Socket closed whilst receiving data → Continue (try again)
           ns.Data←⎕JSON r.Data
      
         ⍝ # Show the console output
@@ -293,7 +294,6 @@
      
           ⎕←'Ready to retrieve the log!'
           ⎕←(⎕JSON⍠'Compact' 0)(⎕JSON r.Data)
-          ∘∘∘
           ns.log←get(⎕JSON r.Data).url,'consoleText'
           ⍝ h.Command←'get'
           ⍝ con←h.Run

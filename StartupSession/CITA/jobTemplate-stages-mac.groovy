@@ -6,23 +6,17 @@ stage ("mac_%CITA_VERSION%_%VERSION%") {
       echo "NODE_NAME = ${env.NODE_NAME}"            
       path = "/Dyalog/Dyalog-%VERSION%.app/Contents/Resources/Dyalog/mapl"
       exists = fileExists(path)      
-      if (exists) {
-        echo "PLATFORM=mac, path=${path}: File exists!"
-      } else {
-        echo "PLATFORM=mac, path=${path}: File does not exist, trying another path"
+      if (!exists) {
         path = "/Applications/Dyalog-%VERSION%.app/Contents/Resources/Dyalog/mapl"
         exists = fileExists(path)          
-        if (exists) {
-          echo "PLATFORM=mac, path=${path}: File exists!"
-        } else {
+        if (!exists) {
           error "PLATFORM=mac, path=${path}: File does not exist, giving it up!"
         }
       }
       testPath="%xinO%mac_%VERSION%_u64/"
-      echo "testPath=$testPath"
-      cmdline = "%CMDLINE% CONFIGFILE=${testPath}cita.dcfg CITA_Log=${testPath}CITA.log LOG_FILE=${testPath}CITA_Session.dlf citaDEVT=${citaDEVT}"
+      cmdline = "%CMDLINE% USERCONFIGFILE=${testPath}cita.dcfg CITA_Log=${testPath}CITA.log citaDEVT=${citaDEVT}"
+
       if ("${env.NODE_NAME}"=="mac3") {
-        echo "replacing for mac3"
         testPath = testPath.replaceAll("(^|=)/devt/","\$1/Volumes/devt/")
         cmdline = cmdline.replaceAll("(^|=)/devt/","\$1/Volumes/devt/")
         citaDEVT="/Volumes/devt/"
@@ -30,11 +24,8 @@ stage ("mac_%CITA_VERSION%_%VERSION%") {
       } else {
         citaDEVT="/devt/"
       }
+      cmdline = "$cmdline > ${testPath}ExecuteLocalTest.log"
       CITAlog="${testPath}CITA.log"
-      echo "cmdline=$cmdline"
-      echo "CITAlog=$CITAlog"
-      echo "Launching $path $cmdline"
-      //sh "$path $cmdline"
       rcj = sh(script: "$path $cmdline" , returnStatus: true)
       echo "CITAlog=$CITAlog|${CITAlog}"
       echo "rcj=$rcj"
