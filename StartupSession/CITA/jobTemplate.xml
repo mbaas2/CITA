@@ -47,9 +47,9 @@
                       error "PLATFORM=mac, path=${path}: File does not exist, giving it up!"
                     }
                   }                
-                  sh "$path load=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.aplf configfile=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.dcfg FOLDER=$folder"              
+                  sh "$path LOAD=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.aplf USERCONFIGFILE=$citaDEVT/apltools/CITA/CITA-Tests/cleanup.dcfg FOLDER=$folder"              
                 } else {
-                  sh "/opt/mdyalog/18.2/64/unicode/p8/mapl load=/devt/apltools/CITA/CITA-Tests/cleanup.aplf configfile=/devt/apltools/CITA/CITA-Tests/cleanup.dcfg FOLDER=%xinD%"              
+                  sh "/opt/mdyalog/18.2/64/unicode/p8/mapl load=/devt/apltools/CITA/CITA-Tests/cleanup.aplf userconfigfile=/devt/apltools/CITA/CITA-Tests/cleanup.dcfg FOLDER=%xinD%"              
                   sh "exit 0"  // end this step w/o problem-status, as it would avoid execution of next steps...
                 }
               }

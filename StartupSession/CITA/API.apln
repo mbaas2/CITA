@@ -3,7 +3,7 @@
     ⎕ml←1
     ⎕io←1
     Timeout←180 ⍝ seconds before we consider a job to have timedout
-    DEBUG←⎕se.SALTUtils.DEBUG×0   ⍝ only allow debugging if we're in UCMD-DEBUG mode
+    DEBUG←⎕se.SALTUtils.DEBUG   ⍝ only allow debugging if we're in UCMD-DEBUG mode
     ⍝ return code:                                             0              1              2              3                           4                   5            6                                7                              8                          9
     ⍝ResultSymbols←↑((⎕ucs(1+⎕se.SALTUtils.CLASSIC)⊃10004 183)'success')('-' 'failure')('t' 'timeout')('n' 'no status file found')('i' 'invalid file')('e' 'error')('c' 'APLCORE while running test')('w' 'WS FULL executing test')('¢' 'classic vs. unicode')('~' 'disabled')
     ResultSymbols←↑((⎕ucs 183)'success')('-' 'failure')('t' 'timeout')('n' 'no status file found')('i' 'invalid file')('e' 'error')('c' 'APLCORE while running test')('w' 'WS FULL executing test')('¢' 'classic vs. unicode')('~' 'disabled')
@@ -291,7 +291,9 @@
       fl←_ExpandEnvVars fl
       fl←∊1 ⎕NPARTS fl
       ('File or directory "',fl,'" not found')⎕SIGNAL(~⎕NEXISTS fl)/700
-      fl,←(1=∊1 ⎕NINFO fl)/('\/'∊⍨⊢/fl)↓'/CITA.JSON*'  ⍝ we also accept folders as arg and append the filespec automatically (since we're expecting one specific file anyway)
+      :If 1=1 ⎕NINFO fl
+          fl←∊0(⎕NINFO⍠'Wildcard' 1)(fl,'/CITA.json*')
+      :EndIf
      
       fld←1⊃⎕NPARTS fl
       :If ''≡xinO←_ExpandEnvVars''##._getArg'workdir'arg
@@ -309,7 +311,7 @@
       resTab←1 1⍴' '  ⍝ tests x Interpreters - a summary table of test-results  - first row/col contains ids/names
       showedIO←0   ⍝ when we display test-counts instead of ids, give info about IO=1 (this var ensures we're doing it once only!)
       rcTest←¯1  ⍝ ¯1: no tests executed
-      :If (~⎕NEXISTS fl)∨'cita.json'≢9↑⎕C∊1↓⎕NPARTS fl
+      :If (~(⎕NEXISTS⍠'Wildcard' 1)fl)∨'cita.json'≢9↑⎕C∊1↓⎕NPARTS fl
           ns.(rc Log)←700 'CITA.JSON[5] not found'
           →0
       :EndIf
@@ -476,6 +478,12 @@
                           :If DEBUG
                               ⎕←'Assigned nsTest: '
                               ⎕←⎕JSON nsTest
+                          :EndIf
+                          :If ⎕NEXISTS(1⊃⎕NPARTS nsJob.outfile),'MemRep.dcf'
+                              t←((1⊃⎕NPARTS nsJob.outfile),'MemRep.dcf')⎕FSTIE 0
+                              nsTest.(ai2 ai3)←⎕FREAD t,2
+                              nsTest.MemRep←⎕FREAD t,1
+                              ⎕FUNTIE t
                           :EndIf
                       :EndIf
                       :Select rc
@@ -817,10 +825,14 @@
               cmdlinePre←'export TERM=dumb;'
               cmdline←'+s ',cmdline
           :EndIf
-          cmdline,←' ENABLE_CEF=0'
-          cmdline,←' CITADEBUG=',⍕DEBUG
-          cmdline,←' DYALOGSTARTUPSE=',FixPath xinO,'CITA/StartupSession/'
-          cmdline,←' COMMANDFOLDER=',FixPath xinO,'CITA/SALT/spice/'
+        ⍝   cmdline,←' ENABLE_CEF=0'
+          cfg.Settings.ENABLE_CEF←0
+        ⍝   cmdline,←' CITADEBUG=',⍕DEBUG
+          cfg.Settings.CITADEBUG←⍕DEBUG
+          ⍝cmdline,←' DYALOGSTARTUPSE=',FixPath xinO,'CITA/StartupSession/'
+          cfg.Settings.DYALOGSTARTUPSE←FixPath xinO,'CITA/StartupSession/'
+          ⍝cmdline,←' COMMANDFOLDER=',FixPath xinO,'CITA/SALT/spice/ '
+          cfg.Settings.COMMANDFOLDER←FixPath xinO,'CITA/SALT/spice/'
           ⍝cmdline,← FixPath xinO,'CITA/StartupSession/'
           ⍝cmdline,←' "',(∊1 ⎕NPARTS ##.Home),'/client/RunCITA" '
 ⍝ run Jenkins job that execute commandline systems using given labels.  TODO: consider fapl here!
@@ -1152,7 +1164,7 @@
       ⍝ add those flags to better deal with possible exceptions...
           cfg,←' DYALOG_NOPOPUPS=1 PassExceptionsToOpSys=1'
       :EndIf
-     cfg,←'CITADEBUG=',⍕DEBUG
+      cfg,←' CITADEBUG=',⍕DEBUG
      
       cpu←⎕AI[3]
       Fullname←∊1 ⎕NPARTS xin,file
