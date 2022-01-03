@@ -9,8 +9,8 @@
     platforms: [
         "aix",
         "mac",
-         "pi",
-        //"win",
+        "pi",
+        "win",
         //"linux",
         
     ],

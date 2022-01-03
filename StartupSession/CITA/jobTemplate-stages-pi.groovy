@@ -11,7 +11,7 @@ stage ("pi_%CITA_VERSION%_%VERSION%") {
           if (!exists) {
             error "Found no interpreter for ${env.NODE_NAME}. Labels: ${env.NODE_LABELS}"
           }
-          testPath="%xinO%pi_%VERSION%_${E}${BITS}/"
+          testPath="%xinD%pi_%VERSION%_${E}${BITS}/"
           cmdline = "%CMDLINE% citaDEVT=${citaDEVT} USERCONFIGFILE=${testPath}cita.dcfg CITA_Log=${testPath}CITA.log"
           cmdline = "$cmdline > ${testPath}ExecuteLocalTest.log"
 

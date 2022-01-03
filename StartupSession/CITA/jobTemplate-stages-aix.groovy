@@ -20,7 +20,7 @@ stage ("aix_%CITA_VERSION%_%VERSION%") {
               cmdlinePre = "APLT1=utf8 APLT2=utf8 APLK0=utf8 "
             }
             E = EDITION.take(1)
-            testPath="%xinO%aix_%VERSION%_${P}_${E}${BITS}/"
+            testPath="%xinD%aix_%VERSION%_${P}_${E}${BITS}/"
             cmdline = "%CMDLINE% citaDEVT=${citaDEVT} USERCONFIGFILE=${testPath}cita.dcfg CITA_Log=${testPath}CITA.log"
             cmdline = "$cmdline > ${testPath}ExecuteLocalTest.log"
             rcj =  sh(script: "$cmdlinePre $path $cmdline" , returnStatus: true)

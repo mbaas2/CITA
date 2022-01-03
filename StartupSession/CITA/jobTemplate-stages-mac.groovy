@@ -13,7 +13,7 @@ stage ("mac_%CITA_VERSION%_%VERSION%") {
           error "PLATFORM=mac, path=${path}: File does not exist, giving it up!"
         }
       }
-      testPath="%xinO%mac_%VERSION%_u64/"
+      testPath="%xinD%mac_%VERSION%_u64/"
       cmdline = "%CMDLINE% USERCONFIGFILE=${testPath}cita.dcfg CITA_Log=${testPath}CITA.log citaDEVT=${citaDEVT}"
 
       if ("${env.NODE_NAME}"=="mac3") {
